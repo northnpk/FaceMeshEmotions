@@ -98,8 +98,8 @@ def trainmodel(model,train_df, test_df, epochs = 10, learning_rate = 1e-3, batch
     loss_fn = nn.CrossEntropyLoss()
     optimizer = torch.optim.SGD(model.parameters(), lr=learning_rate)
     
-    train_loader = DataLoader(CustomDataset(dataframe = train_df))
-    test_loader = DataLoader(CustomDataset(dataframe = test_df), shuffle=True)
+    train_loader = DataLoader(CustomDataset(dataframe = train_df), batch_size=batch_size)
+    test_loader = DataLoader(CustomDataset(dataframe = test_df), batch_size=batch_size, shuffle=True)
     
     for i in tqdm(range(epochs)):
         print(f"Epoch {i+1}\n-------------------------------")
@@ -116,8 +116,7 @@ def trainmodel(model,train_df, test_df, epochs = 10, learning_rate = 1e-3, batch
 def testmodel(model, test_df, batch_size = 1):
     loss_fn = nn.CrossEntropyLoss()
     
-    test = data_utils.TensorDataset(test_df['feature'].values, test_df['target'].values)
-    test_loader = data_utils.DataLoader(test, batch_size, shuffle=True)
+    test_loader = DataLoader(CustomDataset(dataframe = test_df), batch_size=batch_size, shuffle=True)
     
     return test_loop(test_loader, model, loss_fn)
 
