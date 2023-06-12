@@ -30,16 +30,19 @@ model_path = "./model/facemeshANN.pt"
 
 class ANNClassifier(nn.Module):
 
-    def __init__(self, input_size, output_size):
+    def __init__(self, input_size, output_size, dropout):
         super().__init__()
         self.flatten = nn.Flatten()
         self.linear_relu_stack = nn.Sequential(
             nn.Linear(input_size, 1024),
             nn.ReLU(),
+            nn.Dropout(dropout),
             nn.Linear(1024, 512),
             nn.ReLU(),
+            nn.Dropout(dropout),
             nn.Linear(512, 512),
             nn.ReLU(),
+            nn.Dropout(dropout),
             nn.Linear(512, output_size),
         )
 
@@ -124,20 +127,15 @@ def trainmodel(model,
 
     for i in range(epochs):
         pbar.set_description(
-            f'Training...\n train_loss:{train_loss:.4f} | val_loss:{val_loss:.4f} | val_acc:{val_acc:.4f} | test_loss:{test_loss:.4f} | test_acc:{test_acc:.4f}'
+            f'Training | train_loss:{train_loss:.4f} | val_loss:{val_loss:.4f} | val_acc:{val_acc:.4f} | test_loss:{test_loss:.4f} | test_acc:{test_acc:.4f}'
         )
         model, train_loss = train_loop(train_loader, model, loss_fn, optimizer)
         if epochs > 10:
             if i % int(0.1 * epochs) == 0:
-                pbar.set_description(
-                    f'Validation...\n train_loss:{train_loss:.4f} | val_loss:{val_loss:.4f} | val_acc:{val_acc:.4f} | test_loss:{test_loss:.4f} | test_acc:{test_acc:.4f}'
-                )
-                val_loss, val_acc = test_loop(val_loader, model, loss_fn)
-            else:
-                pbar.set_description(
-                    f'Testing...\n train_loss:{train_loss:.4f} | val_loss:{val_loss:.4f} | val_acc:{val_acc:.4f} | test_loss:{test_loss:.4f} | test_acc:{test_acc:.4f}'
-                )
                 test_loss, test_acc = test_loop(test_loader, model, loss_fn)
+                
+            else:
+                val_loss, val_acc = test_loop(val_loader, model, loss_fn)
 
         pbar.update(1)
     test_loss, test_acc = test_loop(test_loader, model, loss_fn)
