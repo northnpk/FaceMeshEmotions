@@ -8,25 +8,31 @@ mp_drawing = mp.solutions.drawing_utils
 mp_drawing_styles = mp.solutions.drawing_styles
 mp_face_mesh = mp.solutions.face_mesh
 
+tqdm.pandas()
 
 class FERdata(object):
 
-    def __init__(self,
-                 path_to_csv,
-                 mode='ANN',
-                 drawlandmarks=False,
-                 mapping=False,
-                 cmap='GRAY'):
+    def __init__(self, path_to_csv):
         self.original_df = pd.read_csv(path_to_csv)
-        self.original_df['img'] = self.original_df.apply(to_img, axis=1)
-        self.df = getlandmark(self.original_df, mode, drawlandmarks, mapping,
-                              cmap)
+        self.original_df['img'] = self.original_df.progress_apply(to_img, axis=1)
 
-    def get_sample(self, size):
-        return pd.concat([
-            self.df[self.df['usage'] == 'train'][:size], self.df[29000:29010],
-            self.df[-10:]
-        ])
+    def get_df(self,
+               mode='ANN',
+               drawlandmarks=False,
+               mapping=False,
+               cmap='GRAY',
+               sample=False,
+               sample_size=10):
+
+        if sample == True:
+            return getlandmark(
+                pd.concat([
+                    self.original_df[self.original_df[' Usage'] == 'Training'][:sample_size], 
+                    self.original_df[self.original_df[' Usage'] == 'PublicTest'][:sample_size],
+                    self.original_df[self.original_df[' Usage'] == 'PrivateTest'][:sample_size]]),
+                mode, drawlandmarks, mapping, cmap)
+        else:
+            return getlandmark(self.original_df, mode, drawlandmarks, mapping, cmap)
 
 
 def to_img(row):

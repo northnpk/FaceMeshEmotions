@@ -16,10 +16,12 @@ class CustomDataset(Dataset):
         target = dataframe['target']
         self.X = np.array(feature)
         self.y = np.array(target)
+        self.device = ("cuda" if torch.cuda.is_available() else
+                       "mps" if torch.backends.mps.is_available() else "cpu")
 
     def __getitem__(self, index):
-        return torch.from_numpy(self.X[index]).to(torch.float32), torch.tensor(
-            self.y[index])
+        return torch.from_numpy(self.X[index]).to(torch.float32).to(self.device), torch.tensor(
+            self.y[index]).to(self.device)
 
     def __len__(self):
         return self.len
@@ -52,7 +54,8 @@ class ANNClassifier(nn.Module):
 
     def forward(self, x):
         x = self.flatten(x)
-        logits = self.linear_relu_stack(x)
+        x = self.linear_relu_stack(x)
+        logits = nn.Softmax(dim=1)(x)
         return logits
 
 
@@ -61,6 +64,7 @@ def train_loop(dataloader, model, loss_fn, optimizer):
     # Set the model to training mode - important for batch normalization and dropout layers
     # Unnecessary in this situation but added for best practices
     model.train()
+    trainbar = tqdm(total = len(dataloader))
     for batch, (X, y) in enumerate(dataloader):
         # Compute prediction and loss
         pred = model(X)
@@ -70,6 +74,7 @@ def train_loop(dataloader, model, loss_fn, optimizer):
         loss.backward()
         optimizer.step()
         optimizer.zero_grad()
+        trainbar.update(1)
 
         if batch % 100 == 0:
             loss, current = loss.item(), (batch + 1) * len(X)
@@ -106,18 +111,19 @@ def trainmodel(model,
                val_df,
                test_df,
                epochs=10,
-               learning_rate=1e-3,
+               lr=1e-4,
                batch_size=8):
+    device = model.device
     loss_fn = nn.CrossEntropyLoss()
-    optimizer = torch.optim.SGD(model.parameters(), lr=learning_rate)
+    optimizer = torch.optim.SGD(model.parameters(), lr=lr)
 
     train_dataset = CustomDataset(dataframe=train_df)
     val_dataset = CustomDataset(dataframe=val_df)
     test_dataset = CustomDataset(dataframe=test_df)
 
     train_loader = DataLoader(train_dataset, batch_size=batch_size)
-    val_loader = DataLoader(val_dataset, batch_size=batch_size, shuffle=True)
-    test_loader = DataLoader(test_dataset, batch_size=batch_size, shuffle=True)
+    val_loader = DataLoader(val_dataset, batch_size=batch_size,shuffle=True)
+    test_loader = DataLoader(test_dataset, batch_size=batch_size,shuffle=True)
     train_loss = 1
     val_loss = 1
     val_acc = 1
@@ -125,22 +131,24 @@ def trainmodel(model,
     test_acc = 1
     pbar = tqdm(total=epochs)
 
+    model.to(device)
+
     for i in range(epochs):
         pbar.set_description(
-            f'Training | train_loss:{train_loss:.4f} | val_loss:{val_loss:.4f} | val_acc:{val_acc:.4f} | test_loss:{test_loss:.4f} | test_acc:{test_acc:.4f}'
+            f'Epoch {i+1} | tr_loss:{train_loss:.4f} | va_loss:{val_loss:.4f} | va_acc:{val_acc:.4f} | te_loss:{test_loss:.4f} | te_acc:{test_acc:.4f}'
         )
         model, train_loss = train_loop(train_loader, model, loss_fn, optimizer)
         if epochs > 10:
             if i % int(0.1 * epochs) == 0:
                 test_loss, test_acc = test_loop(test_loader, model, loss_fn)
-                
+
             else:
                 val_loss, val_acc = test_loop(val_loader, model, loss_fn)
 
-        pbar.update(1)
+        # pbar.update(1)
     test_loss, test_acc = test_loop(test_loader, model, loss_fn)
     print(
-        f'train_loss:{train_loss:.4f} | val_loss:{val_loss:.4f} | val_acc:{val_acc:.4f} | test_loss:{test_loss:.4f} | test_acc:{test_acc:.4f}'
+        f'Result : train_loss:{train_loss:.4f} | val_loss:{val_loss:.4f} | val_acc:{val_acc:.4f} | test_loss:{test_loss:.4f} | test_acc:{test_acc:.4f}'
     )
     print("Done!")
     return model, test_loss, test_acc
