@@ -5,6 +5,7 @@ from torch.utils.data import DataLoader, Dataset
 import torch.utils.data as data_utils
 from tqdm import tqdm
 import numpy as np
+from matplotlib import pyplot as plt
 
 
 class CustomDataset(Dataset):
@@ -55,11 +56,12 @@ class ANNClassifier(nn.Module):
     def forward(self, x):
         x = self.flatten(x)
         x = self.linear_relu_stack(x)
-        return nn.Softmax(dim=1)(x)
+        return x
 
 
-def train_loop(dataloader, model, loss_fn, optimizer):
+def train_loop(dataloader, model, loss_fn, optimizer, lr_scheduler):
     size = len(dataloader.dataset)
+    training_loss = 0
     # Set the model to training mode - important for batch normalization and dropout layers
     # Unnecessary in this situation but added for best practices
     model.train()
@@ -69,15 +71,13 @@ def train_loop(dataloader, model, loss_fn, optimizer):
         loss = loss_fn(pred, y)
 
         # Backpropagation
+        optimizer.zero_grad()
         loss.backward()
         optimizer.step()
-        optimizer.zero_grad()
-
-        if batch % 100 == 0:
-            loss, current = loss.item(), (batch + 1) * len(X)
-            # print(f"loss: {loss:>7f}  [{current:>5d}/{size:>5d}]")
-
-    return model, loss
+        training_loss += loss.item()
+        
+    lr_scheduler.step()
+    return model, training_loss/len(dataloader)
 
 
 def test_loop(dataloader, model, loss_fn):
@@ -126,13 +126,19 @@ def trainmodel(model,
     val_loader = DataLoader(val_dataset, batch_size=batch_size,shuffle=True)
     test_loader = DataLoader(test_dataset, batch_size=batch_size,shuffle=True)
     
-    train_loss = 1
-    val_loss = 1
-    val_acc = 0
-    test_loss = 1
-    test_acc = 0
+    train_loss = torch.tensor(1)
+    val_loss = torch.tensor(1)
+    val_acc = torch.tensor(0)
+    test_loss = torch.tensor(1)
+    test_acc = torch.tensor(0)
+    train_loss_backup = []
+    val_loss_backup = []
+    val_acc_backup = []
+    test_loss_backup = []
+    test_acc_backup = []
     
     pbar = tqdm(total=epochs)
+    pbar.update(1)
 
     model.to(device)
 
@@ -140,22 +146,39 @@ def trainmodel(model,
         pbar.set_description(
             f'Epoch {i+1} | tr_loss:{train_loss:.4f} | va_loss:{val_loss:.4f} | va_acc:{val_acc:.4f} | te_loss:{test_loss:.4f} | te_acc:{test_acc:.4f}'
         )
-        model, train_loss = train_loop(train_loader, model, loss_fn, optimizer)
-        lr_scheduler.step()
+        
+        model, train_loss = train_loop(train_loader, model, loss_fn, optimizer, lr_scheduler)
         
         if epochs > 10:
-            if i % int(0.1 * epochs) == 0:
+            if i % int(epochs/10) == 0:
                 test_loss, test_acc = test_loop(test_loader, model, loss_fn)
-
             else:
                 val_loss, val_acc = test_loop(val_loader, model, loss_fn)
-              
+                
+        train_loss_backup.append(train_loss)
+        test_loss_backup.append(test_loss)
+        test_acc_backup.append(test_acc)
+        val_loss_backup.append(val_loss)
+        val_acc_backup.append(val_acc)
         pbar.update(1)
+              
+        
     test_loss, test_acc = test_loop(test_loader, model, loss_fn)
     print(
         f'Result : train_loss:{train_loss:.4f} | val_loss:{val_loss:.4f} | val_acc:{val_acc:.4f} | test_loss:{test_loss:.4f} | test_acc:{test_acc:.4f}'
     )
     print("Done!")
+    plt.subplot(1,2,1)
+    plt.plot(range(epochs), val_loss_backup, label = "val_loss")
+    plt.plot(range(epochs), test_loss_backup, label = "test_loss")
+    plt.plot(range(epochs), train_loss_backup, label = "train_loss")
+    plt.legend()
+    plt.subplot(1,2,2)
+    plt.plot(range(epochs), val_acc_backup, label = "val_acc")
+    plt.plot(range(epochs), test_acc_backup, label = "test_acc")
+    plt.legend()
+    plt.show()
+    
     return model, test_loss, test_acc
 
 

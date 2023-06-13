@@ -141,7 +141,7 @@ def getlandmark(df, mode, draw, map, cmap):
                 ],
                                    ignore_index=True)
 
-            if mode == 'IMGANN':
+            elif mode == 'IMGANN':
                 new_df = pd.concat([
                     new_df,
                     pd.DataFrame([[
