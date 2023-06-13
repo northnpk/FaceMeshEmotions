@@ -10,11 +10,13 @@ mp_face_mesh = mp.solutions.face_mesh
 
 tqdm.pandas()
 
+
 class FERdata(object):
 
     def __init__(self, path_to_csv):
         self.original_df = pd.read_csv(path_to_csv)
-        self.original_df['img'] = self.original_df.progress_apply(to_img, axis=1)
+        self.original_df['img'] = self.original_df.progress_apply(to_img,
+                                                                  axis=1)
 
     def get_df(self,
                mode='ANN',
@@ -27,12 +29,16 @@ class FERdata(object):
         if sample == True:
             return getlandmark(
                 pd.concat([
-                    self.original_df[self.original_df[' Usage'] == 'Training'][:sample_size], 
-                    self.original_df[self.original_df[' Usage'] == 'PublicTest'][:sample_size],
-                    self.original_df[self.original_df[' Usage'] == 'PrivateTest'][:sample_size]]),
-                mode, drawlandmarks, mapping, cmap)
+                    self.original_df[self.original_df[' Usage'] ==
+                                     'Training'][:sample_size],
+                    self.original_df[self.original_df[' Usage'] ==
+                                     'PublicTest'][:sample_size],
+                    self.original_df[self.original_df[' Usage'] ==
+                                     'PrivateTest'][:sample_size]
+                ]), mode, drawlandmarks, mapping, cmap)
         else:
-            return getlandmark(self.original_df, mode, drawlandmarks, mapping, cmap)
+            return getlandmark(self.original_df, mode, drawlandmarks, mapping,
+                               cmap)
 
 
 def to_img(row):
@@ -103,42 +109,52 @@ def getlandmark(df, mode, draw, map, cmap):
         for data in tqdm(df[[' Usage', 'img', 'emotion']].values):
             # Convert the BGR image to RGB before processing.
             if cmap == 'GRAY':
-                result = face_mesh.process(
-                    cv2.cvtColor(data[1], cv2.COLOR_GRAY2RGB))
+                img = cv2.cvtColor(data[1], cv2.COLOR_GRAY2RGB)
             elif cmap == 'BGR':
-                result = face_mesh.process(
-                    cv2.cvtColor(data[1], cv2.COLOR_BGR2RGB))
+                img = cv2.cvtColor(data[1], cv2.COLOR_BGR2RGB)
             else:
-                result = face_mesh.process(data[1])
+                img = data[1]
 
             if map == True:
                 print('Currently have only not map')
             else:
                 emotion = data[2]
 
-            # Print and draw face mesh landmarks on the image.
-            if not result.multi_face_landmarks:
-                continue
-
             if mode == 'ANN':
+                result = face_mesh.process(img)
+                if not result.multi_face_landmarks:
+                    continue
+
                 np_landmark = prepareforANN(
                     result.multi_face_landmarks[0].landmark)
+
+                if draw == True:
+                    annotated_image = cv2.cvtColor(data[1],
+                                                   cv2.COLOR_GRAY2RGB).copy()
+                    annotated_image = drawalllandmark(annotated_image, result)
+                    draw_img.append(annotated_image)
+
+                new_df = pd.concat([
+                    new_df,
+                    pd.DataFrame([[usage_map[data[0]], np_landmark, emotion]],
+                                 columns=['usage', 'feature', 'target'])
+                ],
+                                   ignore_index=True)
+
+            if mode == 'IMGANN':
+                new_df = pd.concat([
+                    new_df,
+                    pd.DataFrame([[
+                        usage_map[data[0]],
+                        cv2.cvtColor(data[1], cv2.COLOR_GRAY2RGB), emotion
+                    ]],
+                                 columns=['usage', 'feature', 'target'])
+                ],
+                                   ignore_index=True)
+
             else:
-                print('Currently have only ANN mode')
+                print('Currently have only ANN, IMGANN mode')
                 break
-
-            if draw == True:
-                annotated_image = cv2.cvtColor(data[1],
-                                               cv2.COLOR_GRAY2RGB).copy()
-                annotated_image = drawalllandmark(annotated_image, result)
-                draw_img.append(annotated_image)
-
-            new_df = pd.concat([
-                new_df,
-                pd.DataFrame([[usage_map[data[0]], np_landmark, emotion]],
-                             columns=['usage', 'feature', 'target'])
-            ],
-                               ignore_index=True)
 
         if draw is True:
             new_df['draw_img'] = draw_img
