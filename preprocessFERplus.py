@@ -14,9 +14,8 @@ tqdm.pandas()
 class FERdata(object):
 
     def __init__(self, path_to_csv):
+        print(f'reading csvfile from {path_to_csv}')
         self.original_df = pd.read_csv(path_to_csv)
-        self.original_df['img'] = self.original_df.progress_apply(to_img,
-                                                                  axis=1)
 
     def get_df(self,
                mode='ANN',
@@ -25,18 +24,29 @@ class FERdata(object):
                cmap='GRAY',
                sample=False,
                sample_size=10):
-
+        if sample is False:
+            sample_size = 'Default'
+        print('Generate df with config')
+        print(
+            f' mode:{mode}\n drawlandmarks:{drawalllandmark}\n mapping:{mapping}\n colormap:{cmap}\n sample:{sample}\n sample_size:{sample_size}'
+        )
         if sample == True:
-            return getlandmark(
-                pd.concat([
-                    self.original_df[self.original_df[' Usage'] ==
-                                     'Training'][:sample_size],
-                    self.original_df[self.original_df[' Usage'] ==
-                                     'PublicTest'][:sample_size],
-                    self.original_df[self.original_df[' Usage'] ==
-                                     'PrivateTest'][:sample_size]
-                ]), mode, drawlandmarks, mapping, cmap)
+            self.original_df = pd.concat([
+                self.original_df[self.original_df[' Usage'] == 'Training']
+                [:sample_size], self.original_df[self.original_df[' Usage'] ==
+                                                 'PublicTest'][:sample_size],
+                self.original_df[self.original_df[' Usage'] ==
+                                 'PrivateTest'][:sample_size]
+            ])
+            print('Prepaer data to img')
+            self.original_df['img'] = self.original_df.progress_apply(to_img,
+                                                                      axis=1)
+            return getlandmark(self.original_df, mode, drawlandmarks, mapping,
+                               cmap)
         else:
+            print('Prepaer data to img')
+            self.original_df['img'] = self.original_df.progress_apply(to_img,
+                                                                      axis=1)
             return getlandmark(self.original_df, mode, drawlandmarks, mapping,
                                cmap)
 
@@ -106,6 +116,7 @@ def getlandmark(df, mode, draw, map, cmap):
                                max_num_faces=1,
                                refine_landmarks=True,
                                min_detection_confidence=0.5) as face_mesh:
+        print('Get lanmarks data')
         for data in tqdm(df[[' Usage', 'img', 'emotion']].values):
             # Convert the BGR image to RGB before processing.
             if cmap == 'GRAY':

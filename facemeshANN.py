@@ -27,10 +27,6 @@ class CustomDataset(Dataset):
     def __len__(self):
         return self.len
 
-
-model_path = "./model/facemeshANN.pt"
-
-
 class ANNClassifier(nn.Module):
 
     def __init__(self, input_size, output_size, dropout):
@@ -59,7 +55,7 @@ class ANNClassifier(nn.Module):
         return x
 
 
-def train_loop(dataloader, model, loss_fn, optimizer, lr_scheduler):
+def train_loop(dataloader, model, loss_fn, optimizer):
     size = len(dataloader.dataset)
     training_loss = 0
     # Set the model to training mode - important for batch normalization and dropout layers
@@ -76,7 +72,6 @@ def train_loop(dataloader, model, loss_fn, optimizer, lr_scheduler):
         optimizer.step()
         training_loss += loss.item()
         
-    lr_scheduler.step()
     return model, training_loss/len(dataloader)
 
 
@@ -114,9 +109,9 @@ def trainmodel(model,
     loss_fn = nn.CrossEntropyLoss()
     optimizer = torch.optim.SGD(model.parameters(), lr=lr,
                                 momentum=0.9, weight_decay=0.0005)
-    lr_scheduler = torch.optim.lr_scheduler.StepLR(optimizer,
-                                                   step_size=3,
-                                                   gamma=0.1)
+    # lr_scheduler = torch.optim.lr_scheduler.StepLR(optimizer,
+    #                                                step_size=3,
+    #                                                gamma=0.1)
 
     train_dataset = CustomDataset(dataframe=train_df)
     val_dataset = CustomDataset(dataframe=val_df)
@@ -138,7 +133,6 @@ def trainmodel(model,
     test_acc_backup = []
     
     pbar = tqdm(total=epochs)
-    pbar.update(1)
 
     model.to(device)
 
@@ -146,9 +140,9 @@ def trainmodel(model,
         pbar.set_description(
             f'Epoch {i+1} | tr_loss:{train_loss:.4f} | va_loss:{val_loss:.4f} | va_acc:{val_acc:.4f} | te_loss:{test_loss:.4f} | te_acc:{test_acc:.4f}'
         )
-        
-        model, train_loss = train_loop(train_loader, model, loss_fn, optimizer, lr_scheduler)
-        
+        model.train()
+        model, train_loss = train_loop(train_loader, model, loss_fn, optimizer)
+        # lr_scheduler.step()
         if epochs > 10:
             if i % int(epochs/10) == 0:
                 test_loss, test_acc = test_loop(test_loader, model, loss_fn)
@@ -179,12 +173,14 @@ def trainmodel(model,
     plt.legend()
     plt.show()
     
+    model.eval()
+    
     return model, test_loss, test_acc
 
 
 def testmodel(model, test_df, batch_size=1):
     loss_fn = nn.CrossEntropyLoss()
-
+    
     test_dataset = CustomDataset(dataframe=test_df)
     test_loader = DataLoader(test_dataset, batch_size=batch_size, shuffle=True)
 
@@ -192,11 +188,17 @@ def testmodel(model, test_df, batch_size=1):
 
 
 def savemodel(model, save_path='./model.pt'):
-    torch.save(model, save_path)
+    torch.save(model.state_dict(), save_path)
     print("saving done!")
 
 
-def getmodel(path_to_model):
-    model = torch.load(path_to_model)
+def getmodel(model, path_to_model):
+    model.load_state_dict(torch.load(path_to_model))
+    model.device = ("cuda" if torch.cuda.is_available() else
+                       "mps" if torch.backends.mps.is_available() else "cpu")
+    model.to(model.device)
     model.eval()
     return model
+
+def predict(model, X):
+    return model(torch.from_numpy(X).to(torch.float32).to(model.device))
