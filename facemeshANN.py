@@ -15,14 +15,13 @@ class CustomDataset(Dataset):
         self.len = len(dataframe)
         feature = dataframe['feature']
         target = dataframe['target']
-        self.X = np.array(feature)
-        self.y = np.array(target)
         self.device = ("cuda" if torch.cuda.is_available() else
                        "mps" if torch.backends.mps.is_available() else "cpu")
+        self.X = torch.from_numpy(np.array([f for f in feature])).to(torch.float32).to(self.device)
+        self.y = torch.tensor([torch.tensor(t) for t in target]).to(self.device)
 
     def __getitem__(self, index):
-        return torch.from_numpy(self.X[index]).to(torch.float32).to(self.device), torch.tensor(
-            self.y[index]).to(self.device)
+        return self.X[index], self.y[index]
 
     def __len__(self):
         return self.len
@@ -37,6 +36,12 @@ class ANNClassifier(nn.Module):
             nn.ReLU(),
             nn.Dropout(dropout),
             nn.Linear(1024, 512),
+            nn.ReLU(),
+            nn.Dropout(dropout),
+            nn.Linear(512, 512),
+            nn.ReLU(),
+            nn.Dropout(dropout),
+            nn.Linear(512, 512),
             nn.ReLU(),
             nn.Dropout(dropout),
             nn.Linear(512, 512),
@@ -109,9 +114,7 @@ def trainmodel(model,
     loss_fn = nn.CrossEntropyLoss()
     optimizer = torch.optim.SGD(model.parameters(), lr=lr,
                                 momentum=0.9, weight_decay=0.0005)
-    # lr_scheduler = torch.optim.lr_scheduler.StepLR(optimizer,
-    #                                                step_size=3,
-    #                                                gamma=0.1)
+    scheduler = torch.optim.lr_scheduler.LinearLR(optimizer, start_factor=1.0, end_factor=0.01, total_iters=int(epochs/2))
 
     train_dataset = CustomDataset(dataframe=train_df)
     val_dataset = CustomDataset(dataframe=val_df)
@@ -121,10 +124,10 @@ def trainmodel(model,
     val_loader = DataLoader(val_dataset, batch_size=batch_size,shuffle=True)
     test_loader = DataLoader(test_dataset, batch_size=batch_size,shuffle=True)
     
-    train_loss = torch.tensor(1)
-    val_loss = torch.tensor(1)
+    train_loss = torch.tensor(0)
+    val_loss = torch.tensor(0)
     val_acc = torch.tensor(0)
-    test_loss = torch.tensor(1)
+    test_loss = torch.tensor(0)
     test_acc = torch.tensor(0)
     train_loss_backup = []
     val_loss_backup = []
@@ -140,15 +143,18 @@ def trainmodel(model,
         pbar.set_description(
             f'Epoch {i+1} | tr_loss:{train_loss:.4f} | va_loss:{val_loss:.4f} | va_acc:{val_acc:.4f} | te_loss:{test_loss:.4f} | te_acc:{test_acc:.4f}'
         )
-        model.train()
         model, train_loss = train_loop(train_loader, model, loss_fn, optimizer)
-        # lr_scheduler.step()
+        if i == 0 :
+            val_loss, val_acc = test_loop(val_loader, model, loss_fn)
+            test_loss, test_acc = test_loop(test_loader, model, loss_fn)
+            
         if epochs > 10:
-            if i % int(epochs/10) == 0:
+            if i % 10 == 0:
                 test_loss, test_acc = test_loop(test_loader, model, loss_fn)
             else:
                 val_loss, val_acc = test_loop(val_loader, model, loss_fn)
                 
+        scheduler.step()
         train_loss_backup.append(train_loss)
         test_loss_backup.append(test_loss)
         test_acc_backup.append(test_acc)
@@ -162,16 +168,16 @@ def trainmodel(model,
         f'Result : train_loss:{train_loss:.4f} | val_loss:{val_loss:.4f} | val_acc:{val_acc:.4f} | test_loss:{test_loss:.4f} | test_acc:{test_acc:.4f}'
     )
     print("Done!")
-    plt.subplot(1,2,1)
-    plt.plot(range(epochs), val_loss_backup, label = "val_loss")
-    plt.plot(range(epochs), test_loss_backup, label = "test_loss")
-    plt.plot(range(epochs), train_loss_backup, label = "train_loss")
-    plt.legend()
-    plt.subplot(1,2,2)
-    plt.plot(range(epochs), val_acc_backup, label = "val_acc")
-    plt.plot(range(epochs), test_acc_backup, label = "test_acc")
-    plt.legend()
-    plt.show()
+    # plt.subplot(1,2,1)
+    # plt.plot(range(epochs), val_loss_backup, label = "val_loss")
+    # plt.plot(range(epochs), test_loss_backup, label = "test_loss")
+    # plt.plot(range(epochs), train_loss_backup, label = "train_loss")
+    # plt.legend()
+    # plt.subplot(1,2,2)
+    # plt.plot(range(epochs), val_acc_backup, label = "val_acc")
+    # plt.plot(range(epochs), test_acc_backup, label = "test_acc")
+    # plt.legend()
+    # plt.show()
     
     model.eval()
     

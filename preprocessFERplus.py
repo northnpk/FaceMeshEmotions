@@ -15,7 +15,11 @@ class FERdata(object):
 
     def __init__(self, path_to_csv):
         print(f'reading csvfile from {path_to_csv}')
-        self.original_df = pd.read_csv(path_to_csv)
+        self.original_df = pd.read_csv(path_to_csv).sample(frac=1, ignore_index=True)
+        self.len = len(self.original_df)
+    
+    def __len__(self):
+        return self.len
 
     def get_df(self,
                mode='ANN',
@@ -23,33 +27,35 @@ class FERdata(object):
                mapping=False,
                cmap='GRAY',
                sample=False,
-               sample_size=10):
+               sample_size=10,
+               balance = False):
         if sample is False:
-            sample_size = 'Default'
+            sample_size = self.len
         print('Generate df with config')
         print(
-            f' mode:{mode}\n drawlandmarks:{drawalllandmark}\n mapping:{mapping}\n colormap:{cmap}\n sample:{sample}\n sample_size:{sample_size}'
+            f' mode:{mode}\n drawlandmarks:{drawlandmarks}\n mapping:{mapping}\n colormap:{cmap}\n sample:{sample}\n sample_size:{sample_size}'
         )
         if sample == True:
             self.original_df = pd.concat([
-                self.original_df[self.original_df[' Usage'] == 'Training']
-                [:sample_size], self.original_df[self.original_df[' Usage'] ==
-                                                 'PublicTest'][:sample_size],
                 self.original_df[self.original_df[' Usage'] ==
-                                 'PrivateTest'][:sample_size]
+                                 'Training'].sample(n=int(sample_size*0.7)),
+                self.original_df[self.original_df[' Usage'] ==
+                                 'PublicTest'].sample(n=int(sample_size*0.2)),
+                self.original_df[self.original_df[' Usage'] ==
+                                 'PrivateTest'].sample(n=int(sample_size*0.1))
             ])
-            print('Prepaer data to img')
+            print('Prepare data to img')
             self.original_df['img'] = self.original_df.progress_apply(to_img,
                                                                       axis=1)
             return getlandmark(self.original_df, mode, drawlandmarks, mapping,
                                cmap)
         else:
-            print('Prepaer data to img')
+            print('Prepare data to img')
             self.original_df['img'] = self.original_df.progress_apply(to_img,
                                                                       axis=1)
             return getlandmark(self.original_df, mode, drawlandmarks, mapping,
                                cmap)
-
+        
 
 def to_img(row):
     return np.array(row[' pixels'].split(' ')).reshape(48, 48).astype('uint8')
@@ -116,7 +122,7 @@ def getlandmark(df, mode, draw, map, cmap):
                                max_num_faces=1,
                                refine_landmarks=True,
                                min_detection_confidence=0.5) as face_mesh:
-        print('Get lanmarks data')
+        
         for data in tqdm(df[[' Usage', 'img', 'emotion']].values):
             # Convert the BGR image to RGB before processing.
             if cmap == 'GRAY':
@@ -169,5 +175,9 @@ def getlandmark(df, mode, draw, map, cmap):
 
         if draw is True:
             new_df['draw_img'] = draw_img
+        
+        print(f'Distribution of Train: {new_df[new_df["usage"] == "train"]["target"].value_counts()}')
+        print(f'Distribution of Validation: {new_df[new_df["usage"] == "val"]["target"].value_counts()}')
+        print(f'Distribution of Test {new_df[new_df["usage"] == "test"]["target"].value_counts()}')
 
     return new_df
