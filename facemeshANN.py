@@ -17,14 +17,17 @@ class CustomDataset(Dataset):
         target = dataframe['target']
         self.device = ("cuda" if torch.cuda.is_available() else
                        "mps" if torch.backends.mps.is_available() else "cpu")
-        self.X = torch.from_numpy(np.array([f for f in feature])).to(torch.float32).to(self.device)
-        self.y = torch.tensor([torch.tensor(t) for t in target]).to(self.device)
+        self.X = torch.from_numpy(np.array([f for f in feature])).to(
+            torch.float32).to(self.device)
+        self.y = torch.tensor([torch.tensor(t)
+                               for t in target]).to(self.device)
 
     def __getitem__(self, index):
         return self.X[index], self.y[index]
 
     def __len__(self):
         return self.len
+
 
 class ANNClassifier(nn.Module):
 
@@ -38,16 +41,10 @@ class ANNClassifier(nn.Module):
             nn.Linear(1024, 512),
             nn.ReLU(),
             nn.Dropout(dropout),
-            nn.Linear(512, 512),
+            nn.Linear(512, 256),
             nn.ReLU(),
             nn.Dropout(dropout),
-            nn.Linear(512, 512),
-            nn.ReLU(),
-            nn.Dropout(dropout),
-            nn.Linear(512, 512),
-            nn.ReLU(),
-            nn.Dropout(dropout),
-            nn.Linear(512, output_size),
+            nn.Linear(256, output_size),
         )
 
         self.device = ("cuda" if torch.cuda.is_available() else
@@ -76,8 +73,8 @@ def train_loop(dataloader, model, loss_fn, optimizer):
         loss.backward()
         optimizer.step()
         training_loss += loss.item()
-        
-    return model, training_loss/len(dataloader)
+
+    return model, training_loss / len(dataloader)
 
 
 def test_loop(dataloader, model, loss_fn):
@@ -109,21 +106,24 @@ def trainmodel(model,
                test_df,
                epochs=10,
                lr=1e-4,
-               batch_size=8):
+               batch_size=8,
+               plot=False):
     device = model.device
     loss_fn = nn.CrossEntropyLoss()
-    optimizer = torch.optim.SGD(model.parameters(), lr=lr,
-                                momentum=0.9, weight_decay=0.0005)
-    scheduler = torch.optim.lr_scheduler.LinearLR(optimizer, start_factor=1.0, end_factor=0.01, total_iters=int(epochs/2))
+    optimizer = torch.optim.Adam(model.parameters(), lr=lr, weight_decay= 1e-4)
+    scheduler = torch.optim.lr_scheduler.LinearLR(optimizer,
+                                                  start_factor=1.0,
+                                                  end_factor=0.01,
+                                                  total_iters=int(epochs / 2))
 
     train_dataset = CustomDataset(dataframe=train_df)
     val_dataset = CustomDataset(dataframe=val_df)
     test_dataset = CustomDataset(dataframe=test_df)
 
     train_loader = DataLoader(train_dataset, batch_size=batch_size)
-    val_loader = DataLoader(val_dataset, batch_size=batch_size,shuffle=True)
-    test_loader = DataLoader(test_dataset, batch_size=batch_size,shuffle=True)
-    
+    val_loader = DataLoader(val_dataset, batch_size=batch_size, shuffle=True)
+    test_loader = DataLoader(test_dataset, batch_size=batch_size, shuffle=True)
+
     train_loss = torch.tensor(0)
     val_loss = torch.tensor(0)
     val_acc = torch.tensor(0)
@@ -134,7 +134,7 @@ def trainmodel(model,
     val_acc_backup = []
     test_loss_backup = []
     test_acc_backup = []
-    
+
     pbar = tqdm(total=epochs)
 
     model.to(device)
@@ -144,16 +144,16 @@ def trainmodel(model,
             f'Epoch {i+1} | tr_loss:{train_loss:.4f} | va_loss:{val_loss:.4f} | va_acc:{val_acc:.4f} | te_loss:{test_loss:.4f} | te_acc:{test_acc:.4f}'
         )
         model, train_loss = train_loop(train_loader, model, loss_fn, optimizer)
-        if i == 0 :
+        if i == 0:
             val_loss, val_acc = test_loop(val_loader, model, loss_fn)
             test_loss, test_acc = test_loop(test_loader, model, loss_fn)
-            
+
         if epochs > 10:
             if i % 10 == 0:
                 test_loss, test_acc = test_loop(test_loader, model, loss_fn)
             else:
                 val_loss, val_acc = test_loop(val_loader, model, loss_fn)
-                
+
         scheduler.step()
         train_loss_backup.append(train_loss)
         test_loss_backup.append(test_loss)
@@ -161,32 +161,32 @@ def trainmodel(model,
         val_loss_backup.append(val_loss)
         val_acc_backup.append(val_acc)
         pbar.update(1)
-              
-        
+
     test_loss, test_acc = test_loop(test_loader, model, loss_fn)
     print(
         f'Result : train_loss:{train_loss:.4f} | val_loss:{val_loss:.4f} | val_acc:{val_acc:.4f} | test_loss:{test_loss:.4f} | test_acc:{test_acc:.4f}'
     )
     print("Done!")
-    # plt.subplot(1,2,1)
-    # plt.plot(range(epochs), val_loss_backup, label = "val_loss")
-    # plt.plot(range(epochs), test_loss_backup, label = "test_loss")
-    # plt.plot(range(epochs), train_loss_backup, label = "train_loss")
-    # plt.legend()
-    # plt.subplot(1,2,2)
-    # plt.plot(range(epochs), val_acc_backup, label = "val_acc")
-    # plt.plot(range(epochs), test_acc_backup, label = "test_acc")
-    # plt.legend()
-    # plt.show()
-    
+    if plot:
+        plt.subplot(1,2,1)
+        plt.plot(range(epochs), val_loss_backup, label = "val_loss")
+        plt.plot(range(epochs), test_loss_backup, label = "test_loss")
+        plt.plot(range(epochs), train_loss_backup, label = "train_loss")
+        plt.legend()
+        plt.subplot(1,2,2)
+        plt.plot(range(epochs), val_acc_backup, label = "val_acc")
+        plt.plot(range(epochs), test_acc_backup, label = "test_acc")
+        plt.legend()
+        plt.show()
+
     model.eval()
-    
+
     return model, test_loss, test_acc
 
 
 def testmodel(model, test_df, batch_size=1):
     loss_fn = nn.CrossEntropyLoss()
-    
+
     test_dataset = CustomDataset(dataframe=test_df)
     test_loader = DataLoader(test_dataset, batch_size=batch_size, shuffle=True)
 
@@ -201,10 +201,11 @@ def savemodel(model, save_path='./model.pt'):
 def getmodel(model, path_to_model):
     model.load_state_dict(torch.load(path_to_model))
     model.device = ("cuda" if torch.cuda.is_available() else
-                       "mps" if torch.backends.mps.is_available() else "cpu")
+                    "mps" if torch.backends.mps.is_available() else "cpu")
     model.to(model.device)
     model.eval()
     return model
+
 
 def predict(model, X):
     return model(torch.from_numpy(X).to(torch.float32).to(model.device))

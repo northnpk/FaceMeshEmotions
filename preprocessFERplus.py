@@ -15,11 +15,23 @@ class FERdata(object):
 
     def __init__(self, path_to_csv):
         print(f'reading csvfile from {path_to_csv}')
-        self.original_df = pd.read_csv(path_to_csv).sample(frac=1, ignore_index=True)
-        self.len = len(self.original_df)
-    
+        self.df = pd.read_csv(path_to_csv).sample(frac=1, ignore_index=True)
+        self.len = len(self.df)
+
     def __len__(self):
         return self.len
+
+    def save_df(self, path_to_save):
+        self.df.to_csv(path_to_save, index=False)
+        print(f'save {path_to_save} done')
+
+    def balance_df(self, mode):
+        return pd.concat([
+            balance_each_usage(self.df[self.df['usage'] == 'train'], mode),
+            balance_each_usage(self.df[self.df['usage'] == 'val'], mode),
+            balance_each_usage(self.df[self.df['usage'] == 'test'], mode)
+        ],
+                         ignore_index=True).sample(frac=1, ignore_index=True)
 
     def get_df(self,
                mode='ANN',
@@ -27,8 +39,7 @@ class FERdata(object):
                mapping=False,
                cmap='GRAY',
                sample=False,
-               sample_size=10,
-               balance = False):
+               sample_size=10):
         if sample is False:
             sample_size = self.len
         print('Generate df with config')
@@ -36,26 +47,42 @@ class FERdata(object):
             f' mode:{mode}\n drawlandmarks:{drawlandmarks}\n mapping:{mapping}\n colormap:{cmap}\n sample:{sample}\n sample_size:{sample_size}'
         )
         if sample == True:
-            self.original_df = pd.concat([
-                self.original_df[self.original_df[' Usage'] ==
-                                 'Training'].sample(n=int(sample_size*0.7)),
-                self.original_df[self.original_df[' Usage'] ==
-                                 'PublicTest'].sample(n=int(sample_size*0.2)),
-                self.original_df[self.original_df[' Usage'] ==
-                                 'PrivateTest'].sample(n=int(sample_size*0.1))
+            self.df = pd.concat([
+                self.df[self.df[' Usage'] == 'Training'].sample(
+                    n=sample_size),
+                self.df[self.df[' Usage'] == 'PublicTest'].sample(
+                    n=sample_size),
+                self.df[self.df[' Usage'] == 'PrivateTest'].sample(
+                    n=sample_size)
             ])
             print('Prepare data to img')
-            self.original_df['img'] = self.original_df.progress_apply(to_img,
-                                                                      axis=1)
-            return getlandmark(self.original_df, mode, drawlandmarks, mapping,
-                               cmap)
+            self.df['img'] = self.df.progress_apply(to_img, axis=1)
+            self.df = getlandmark(self.df, mode, drawlandmarks, mapping, cmap)
+            return self.df
         else:
             print('Prepare data to img')
-            self.original_df['img'] = self.original_df.progress_apply(to_img,
-                                                                      axis=1)
-            return getlandmark(self.original_df, mode, drawlandmarks, mapping,
-                               cmap)
-        
+            self.df['img'] = self.df.progress_apply(to_img, axis=1)
+            self.df = getlandmark(self.df, mode, drawlandmarks, mapping, cmap)
+            return self.df
+
+
+def balance_each_usage(df, mode):
+    print(f'Balancing dataFrame with {mode}sampling mode')
+    target_list = list(df['target'].value_counts().index)
+    if mode == 'up':
+        count = df['target'].value_counts().max()
+    elif mode == 'down':
+        count = df['target'].value_counts().min()
+    list_df = [
+        df[df['target'] == t].sample(n=count,
+                                     random_state=1,
+                                     replace=(mode == 'up'))
+        for t in target_list
+    ]
+    print(f'target list : {target_list}')
+    print(f'count :{count}')
+    return pd.concat(list_df, ignore_index=True)
+
 
 def to_img(row):
     return np.array(row[' pixels'].split(' ')).reshape(48, 48).astype('uint8')
@@ -122,7 +149,7 @@ def getlandmark(df, mode, draw, map, cmap):
                                max_num_faces=1,
                                refine_landmarks=True,
                                min_detection_confidence=0.5) as face_mesh:
-        
+
         for data in tqdm(df[[' Usage', 'img', 'emotion']].values):
             # Convert the BGR image to RGB before processing.
             if cmap == 'GRAY':
@@ -175,9 +202,15 @@ def getlandmark(df, mode, draw, map, cmap):
 
         if draw is True:
             new_df['draw_img'] = draw_img
-        
-        print(f'Distribution of Train: {new_df[new_df["usage"] == "train"]["target"].value_counts()}')
-        print(f'Distribution of Validation: {new_df[new_df["usage"] == "val"]["target"].value_counts()}')
-        print(f'Distribution of Test {new_df[new_df["usage"] == "test"]["target"].value_counts()}')
+
+        print(
+            f'Distribution of Train: {new_df[new_df["usage"] == "train"]["target"].value_counts()}'
+        )
+        print(
+            f'Distribution of Validation: {new_df[new_df["usage"] == "val"]["target"].value_counts()}'
+        )
+        print(
+            f'Distribution of Test {new_df[new_df["usage"] == "test"]["target"].value_counts()}'
+        )
 
     return new_df
