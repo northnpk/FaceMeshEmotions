@@ -121,8 +121,10 @@ def trainmodel(model,
     test_loader = DataLoader(test_dataset, batch_size=batch_size, shuffle=True)
     
     loss_fn = nn.CrossEntropyLoss(weight=train_dataset.class_weights,reduction='mean')
-    optimizer = torch.optim.SGD(model.parameters(), lr=lr)
-    scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(optimizer, 'min')
+    # loss_fn = nn.CrossEntropyLoss()
+    # optimizer = torch.optim.SGD(model.parameters(), lr=lr, momentum=0.9, weight_decay=1e-4)
+    optimizer = torch.optim.Adam(model.parameters(), lr = lr)
+    scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(optimizer, mode='min', factor=0.1, patience=10, threshold=0.0001, threshold_mode='rel', cooldown=0, min_lr=4e-6, eps=1e-08)
 
     train_loss = torch.tensor(0)
     val_loss = torch.tensor(0)
@@ -154,7 +156,7 @@ def trainmodel(model,
             else:
                 val_loss, val_acc = test_loop(val_loader, model, loss_fn)
 
-        scheduler.step(val_loss)
+        # scheduler.step(val_loss)
         train_loss_backup.append(train_loss)
         test_loss_backup.append(test_loss)
         test_acc_backup.append(test_acc)

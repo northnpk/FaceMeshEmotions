@@ -21,7 +21,7 @@ model = classifier.ANNClassifier(input_size=478*3, output_size=7, dropout=0.5)
 # model = classifier.ANNClassifier(input_size=48*48*3, output_size=7, dropout=0.5)
 # model = classifier.getmodel(model, './model/FERplusmeshANN.pt')
 print(model)
-model, test_loss, correct = classifier.trainmodel(model, train_df, val_df, test_df, epochs=1000, lr=1e-2, batch_size=128, plot=True)
+model, test_loss, correct = classifier.trainmodel(model, train_df, val_df, test_df, epochs=1000, lr=1e-5, batch_size=64, plot=True)
 
 # best_model = None
 # min_loss = 99999.9
