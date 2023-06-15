@@ -6,18 +6,22 @@ data = preprocess.FERdata('challenges-in-representation-learning-facial-expressi
 # data = preprocess.FERdata('facemesh_df.csv')
 # result = data.get_df(mode='ANN', sample=True, sample_size=1000)
 result = data.get_df(mode='ANN')
-result = data.balance_df('up')
+# result = data.get_df(mode='IMGANN', sample=True, sample_size=1000)
+# result = data.get_df(mode='IMGANN')
+# result = data.balance_df('up')
 # data.save_df('./facemesh_df.csv')
+
+print(result.head(10))
 
 train_df = result[result['usage'] == 'train'].drop(columns='usage').sample(frac=1, ignore_index=True)
 val_df = result[result['usage'] == 'val'].drop(columns='usage').sample(frac=1, ignore_index=True)
 test_df = result[result['usage'] == 'test'].drop(columns='usage').sample(frac=1, ignore_index=True)
 
 model = classifier.ANNClassifier(input_size=478*3, output_size=7, dropout=0.5)
-# model = classifier.ANNClassifier(input_size=48*48*3, output_size=8, dropout=0.3)
+# model = classifier.ANNClassifier(input_size=48*48*3, output_size=7, dropout=0.5)
 # model = classifier.getmodel(model, './model/FERplusmeshANN.pt')
 print(model)
-model, test_loss, correct = classifier.trainmodel(model, train_df, val_df, test_df, epochs=100, lr=1e-5, batch_size=128, plot=True)
+model, test_loss, correct = classifier.trainmodel(model, train_df, val_df, test_df, epochs=1000, lr=1e-2, batch_size=128, plot=True)
 
 # best_model = None
 # min_loss = 99999.9
@@ -30,4 +34,4 @@ model, test_loss, correct = classifier.trainmodel(model, train_df, val_df, test_
 #         min_loss = test_loss
 
 # print(f'min loss is {np.array(min_loss).argmin()}')
-# classifier.savemodel(best_model, save_path='./model/FERplusmeshANN.pt')
+classifier.savemodel(model, save_path='./model/FERplusmeshANN.pt')

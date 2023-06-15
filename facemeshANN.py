@@ -6,7 +6,7 @@ import torch.utils.data as data_utils
 from tqdm import tqdm
 import numpy as np
 from matplotlib import pyplot as plt
-
+from sklearn.utils import class_weight
 
 class CustomDataset(Dataset):
 
@@ -19,8 +19,10 @@ class CustomDataset(Dataset):
                        "mps" if torch.backends.mps.is_available() else "cpu")
         self.X = torch.from_numpy(np.array([f for f in feature])).to(
             torch.float32).to(self.device)
-        self.y = torch.tensor([torch.tensor(t)
-                               for t in target]).to(self.device)
+        self.y = [torch.tensor(t).to(self.device) for t in target]
+        classweight = class_weight.compute_class_weight(class_weight='balanced',classes=np.unique(target),y=np.array(target))
+        print(f'Class weight:{classweight}')
+        self.class_weights=torch.tensor(classweight,dtype=torch.float).to(self.device)
 
     def __getitem__(self, index):
         return self.X[index], self.y[index]
@@ -41,10 +43,10 @@ class ANNClassifier(nn.Module):
             nn.Linear(1024, 512),
             nn.ReLU(),
             nn.Dropout(dropout),
-            nn.Linear(512, 256),
+            nn.Linear(512, 512),
             nn.ReLU(),
             nn.Dropout(dropout),
-            nn.Linear(256, output_size),
+            nn.Linear(512, output_size),
         )
 
         self.device = ("cuda" if torch.cuda.is_available() else
@@ -109,12 +111,6 @@ def trainmodel(model,
                batch_size=8,
                plot=False):
     device = model.device
-    loss_fn = nn.CrossEntropyLoss()
-    optimizer = torch.optim.Adam(model.parameters(), lr=lr, weight_decay= 1e-4)
-    scheduler = torch.optim.lr_scheduler.LinearLR(optimizer,
-                                                  start_factor=1.0,
-                                                  end_factor=0.01,
-                                                  total_iters=int(epochs / 2))
 
     train_dataset = CustomDataset(dataframe=train_df)
     val_dataset = CustomDataset(dataframe=val_df)
@@ -123,6 +119,10 @@ def trainmodel(model,
     train_loader = DataLoader(train_dataset, batch_size=batch_size)
     val_loader = DataLoader(val_dataset, batch_size=batch_size, shuffle=True)
     test_loader = DataLoader(test_dataset, batch_size=batch_size, shuffle=True)
+    
+    loss_fn = nn.CrossEntropyLoss(weight=train_dataset.class_weights,reduction='mean')
+    optimizer = torch.optim.SGD(model.parameters(), lr=lr)
+    scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(optimizer, 'min')
 
     train_loss = torch.tensor(0)
     val_loss = torch.tensor(0)
@@ -141,7 +141,7 @@ def trainmodel(model,
 
     for i in range(epochs):
         pbar.set_description(
-            f'Epoch {i+1} | tr_loss:{train_loss:.4f} | va_loss:{val_loss:.4f} | va_acc:{val_acc:.4f} | te_loss:{test_loss:.4f} | te_acc:{test_acc:.4f}'
+            f'Epoch {i+1}|tr_loss:{train_loss:.4f}|va_loss:{val_loss:.4f}|va_acc:{val_acc:.4f}|te_loss:{test_loss:.4f}|te_acc:{test_acc:.4f}'
         )
         model, train_loss = train_loop(train_loader, model, loss_fn, optimizer)
         if i == 0:
@@ -154,7 +154,7 @@ def trainmodel(model,
             else:
                 val_loss, val_acc = test_loop(val_loader, model, loss_fn)
 
-        scheduler.step()
+        scheduler.step(val_loss)
         train_loss_backup.append(train_loss)
         test_loss_backup.append(test_loss)
         test_acc_backup.append(test_acc)
@@ -168,14 +168,14 @@ def trainmodel(model,
     )
     print("Done!")
     if plot:
-        plt.subplot(1,2,1)
-        plt.plot(range(epochs), val_loss_backup, label = "val_loss")
-        plt.plot(range(epochs), test_loss_backup, label = "test_loss")
-        plt.plot(range(epochs), train_loss_backup, label = "train_loss")
+        plt.subplot(1, 2, 1)
+        plt.plot(range(epochs), val_loss_backup, label="val_loss")
+        plt.plot(range(epochs), test_loss_backup, label="test_loss")
+        plt.plot(range(epochs), train_loss_backup, label="train_loss")
         plt.legend()
-        plt.subplot(1,2,2)
-        plt.plot(range(epochs), val_acc_backup, label = "val_acc")
-        plt.plot(range(epochs), test_acc_backup, label = "test_acc")
+        plt.subplot(1, 2, 2)
+        plt.plot(range(epochs), val_acc_backup, label="val_acc")
+        plt.plot(range(epochs), test_acc_backup, label="test_acc")
         plt.legend()
         plt.show()
 

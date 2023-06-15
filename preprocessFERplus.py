@@ -31,7 +31,7 @@ class FERdata(object):
             balance_each_usage(self.df[self.df['usage'] == 'val'], mode),
             balance_each_usage(self.df[self.df['usage'] == 'test'], mode)
         ],
-                         ignore_index=True).sample(frac=1, ignore_index=True)
+                         ignore_index=True)
 
     def get_df(self,
                mode='ANN',
@@ -48,8 +48,7 @@ class FERdata(object):
         )
         if sample == True:
             self.df = pd.concat([
-                self.df[self.df[' Usage'] == 'Training'].sample(
-                    n=sample_size),
+                self.df[self.df[' Usage'] == 'Training'].sample(n=sample_size),
                 self.df[self.df[' Usage'] == 'PublicTest'].sample(
                     n=sample_size),
                 self.df[self.df[' Usage'] == 'PrivateTest'].sample(
@@ -79,9 +78,10 @@ def balance_each_usage(df, mode):
                                      replace=(mode == 'up'))
         for t in target_list
     ]
-    print(f'target list : {target_list}')
-    print(f'count :{count}')
-    return pd.concat(list_df, ignore_index=True)
+    print(f'target list:{target_list}')
+    print(f'count:{count}')
+    return pd.concat(list_df, ignore_index=True).sample(frac=1,
+                                                        ignore_index=True)
 
 
 def to_img(row):
