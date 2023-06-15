@@ -145,6 +145,7 @@ def getlandmark(df, mode, draw, map, cmap):
         'PublicTest': 'val',
         'PrivateTest': 'test',
     }
+    print('Getting landmarks with mediapipe FaceMesh')
     with mp_face_mesh.FaceMesh(static_image_mode=True,
                                max_num_faces=1,
                                refine_landmarks=True,
