@@ -10,6 +10,7 @@ mp_face_mesh = mp.solutions.face_mesh
 
 tqdm.pandas()
 
+FERclassName = ['Angry', 'Disgust', 'Fear', 'Happy', 'Sad', 'Surprise', 'Neutral']
 
 class FERdata(object):
 
@@ -17,6 +18,7 @@ class FERdata(object):
         print(f'reading csvfile from {path_to_csv}')
         self.df = pd.read_csv(path_to_csv).sample(frac=1, ignore_index=True)
         self.len = len(self.df)
+        self.class_name = FERclassName
 
     def __len__(self):
         return self.len
@@ -89,8 +91,7 @@ def to_img(row):
 
 
 def prepareforANN(lanmarks):
-    return np.array([[landmark.x, landmark.y, landmark.z]
-                     for landmark in lanmarks])
+    return [[landmark.x, landmark.y, landmark.z]for landmark in lanmarks]
 
 
 def drawalllandmark(annotated_image, result):
