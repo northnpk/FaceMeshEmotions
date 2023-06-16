@@ -206,13 +206,13 @@ def getlandmark(df, mode, draw, map, cmap):
             new_df['draw_img'] = draw_img
 
         print(
-            f'Distribution of Train: {new_df[new_df["usage"] == "train"]["target"].value_counts()}'
+            f'Distribution of Train: \n{new_df[new_df["usage"] == "train"]["target"].value_counts()}'
         )
         print(
-            f'Distribution of Validation: {new_df[new_df["usage"] == "val"]["target"].value_counts()}'
+            f'Distribution of Validation: \n{new_df[new_df["usage"] == "val"]["target"].value_counts()}'
         )
         print(
-            f'Distribution of Test {new_df[new_df["usage"] == "test"]["target"].value_counts()}'
+            f'Distribution of Test \n{new_df[new_df["usage"] == "test"]["target"].value_counts()}'
         )
 
     return new_df
