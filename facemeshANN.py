@@ -130,7 +130,7 @@ def confusematrixtest(dataloader, model, loss_fn, class_name):
     correct /= size
     # print(f'Preds:{np.array(pred_list)}')
     # print(f'y:{np.array(y_list)}')
-    cm = confusion_matrix(np.array(y_list),np.array(pred_list))
+    cm = confusion_matrix(np.array(y_list), np.array(pred_list))
     disp = ConfusionMatrixDisplay(confusion_matrix=cm,
                                   display_labels=class_name)
     disp.plot()
@@ -157,10 +157,13 @@ def trainmodel(model,
     train_loader = DataLoader(train_dataset, batch_size=batch_size)
     val_loader = DataLoader(val_dataset, batch_size=batch_size, shuffle=True)
     test_loader = DataLoader(test_dataset, batch_size=batch_size, shuffle=True)
-    
-    class_weights = [1.0971897, 19.12244898 ,1.08826945, 0.53757889  ,0.81125541 , 1.26280323, 0.81125541]
-    loss_fn = nn.CrossEntropyLoss(weight=class_weights,
-                                  reduction='mean')
+
+    class_weights = torch.tensor([
+        1.0971897, 19.12244898, 1.08826945, 0.53757889, 0.81125541, 1.26280323,
+        0.81125541
+    ],
+                                 dtype=torch.float).to(device)
+    loss_fn = nn.CrossEntropyLoss(weight=class_weights, reduction='mean')
     # loss_fn = nn.CrossEntropyLoss()
     # optimizer = torch.optim.SGD(model.parameters(), lr=lr, momentum=0.9, weight_decay=1e-4)
     optimizer = torch.optim.Adam(model.parameters(), lr=lr)
