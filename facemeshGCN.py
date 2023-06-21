@@ -14,13 +14,16 @@ from sklearn.metrics import confusion_matrix, ConfusionMatrixDisplay, classifica
 
 class CustomDataset(Dataset):
 
-    def __init__(self, dataframe):
+    def __init__(self, dataframe, device='auto'):
         self.len = len(dataframe)
         feature = dataframe['feature']
         edge_index = dataframe['edge_index'][0]
         target = dataframe['target']
-        self.device = ("cuda" if torch.cuda.is_available() else
-                       "mps" if torch.backends.mps.is_available() else "cpu")
+        if device == 'auto':
+            self.device = ("cuda" if torch.cuda.is_available() else
+                           "mps" if torch.backends.mps.is_available() else "cpu")
+        else:
+            self.device = device
         X = torch.from_numpy(np.array([f for f in feature])).to(
             torch.float32)
         edge_index = torch.from_numpy(
@@ -44,15 +47,20 @@ class CustomDataset(Dataset):
 
 class GCNClassifier(nn.Module):
 
-    def __init__(self, input_size, output_size, dropout):
+    def __init__(self, input_size, output_size, dropout, device='auto'):
         super().__init__()
         self.conv1 = GCNConv(input_size, 64)
         self.conv2 = GCNConv(64, 32)
         self.conv3 = GCNConv(32, 32)
         self.lin = nn.Linear(32, output_size)
+        self.dropout = dropout
 
-        self.device = ("cuda" if torch.cuda.is_available() else
-                       "mps" if torch.backends.mps.is_available() else "cpu")
+        if device == 'auto':
+            self.device = ("cuda" if torch.cuda.is_available() else
+                           "mps" if torch.backends.mps.is_available() else "cpu")
+        else:
+            self.device = device
+        
         print(f"Using {self.device} device")
 
     def forward(self, x, edge_index, batch):
@@ -62,7 +70,7 @@ class GCNClassifier(nn.Module):
         x = F.relu(x)
         x = self.conv3(x, edge_index)
         x = global_mean_pool(x, batch)
-        x = F.dropout(x, p=0.5, training=self.training)
+        x = F.dropout(x, p=self.dropout, training=self.training)
         x = self.lin(x)
         return x
 
@@ -157,9 +165,9 @@ def trainmodel(model,
     device = model.device
     print(f'devices:{device}')
 
-    train_dataset = CustomDataset(dataframe=train_df)
-    val_dataset = CustomDataset(dataframe=val_df)
-    test_dataset = CustomDataset(dataframe=test_df)
+    train_dataset = CustomDataset(dataframe=train_df, device=device)
+    val_dataset = CustomDataset(dataframe=val_df, device=device)
+    test_dataset = CustomDataset(dataframe=test_df, device=device)
 
     train_loader = DataLoader(train_dataset, batch_size=batch_size)
     val_loader = DataLoader(val_dataset, batch_size=batch_size, shuffle=True)
@@ -263,11 +271,15 @@ def savemodel(model, save_path='./model.pt'):
     print("saving done!")
 
 
-def getmodel(model, path_to_model):
+def getmodel(model, path_to_model, device='auto'):
     model.load_state_dict(
         torch.load(path_to_model, map_location=torch.device('cpu')))
-    model.device = ("cuda" if torch.cuda.is_available() else
-                    "mps" if torch.backends.mps.is_available() else "cpu")
+    if device == 'auto':
+            model.device = ("cuda" if torch.cuda.is_available() else
+                           "mps" if torch.backends.mps.is_available() else "cpu")
+    else:
+        model.device = device
+    model.to(model.device)
     model.eval()
     return model
 

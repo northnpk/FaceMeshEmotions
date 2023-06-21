@@ -198,22 +198,21 @@ def getlandmark(df, mode, draw, map, cmap):
                 np_landmark = prepareforANN(
                     result.multi_face_landmarks[0].landmark)
                 edge_index = list(mp_face_mesh.FACEMESH_TESSELATION)
+                
                 if draw == True:
                     annotated_image = cv2.cvtColor(data[1],
                                                    cv2.COLOR_GRAY2RGB).copy()
                     annotated_image = drawalllandmark(annotated_image, result)
                     draw_img.append(annotated_image)
-
+                
                 new_df = pd.concat([
                     new_df,
-                    pd.DataFrame([[
-                        usage_map[data[0]], np_landmark, edge_index, emotion
-                    ]],
-                                 columns=[
-                                     'usage', 'feature', 'edge_index', 'target'
-                                 ])
+                    pd.DataFrame([[usage_map[data[0]], np_landmark, emotion]],
+                                 columns=['usage', 'feature', 'target'])
                 ],
                                    ignore_index=True)
+                
+                new_df['edge_index'] = [edge_index for _ in range(len(new_df))]
 
             elif mode == 'IMG':
                 new_df = pd.concat([
