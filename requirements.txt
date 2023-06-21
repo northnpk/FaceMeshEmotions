@@ -2,9 +2,7 @@ opencv-contrib-python==4.7.0.72
 mediapipe==0.10.1
 torch
 pyproject-toml
-torch_scatter 
-torch_sparse 
-torch_cluster 
+torch_cluster
 torch_spline_conv
 git+https://github.com/pyg-team/pyg-lib.git
 git+https://github.com/pyg-team/pytorch_geometric.git
