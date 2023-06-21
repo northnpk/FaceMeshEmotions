@@ -1,7 +1,7 @@
 import torch
 from torch import nn
 import torch.nn.functional as F
-from torch_geometric.nn import GCNConv, global_mean_pool
+from torch_geometric.nn import GraphConv, global_mean_pool
 from torch.utils.data import Dataset
 from torch_geometric.data import Data
 from torch_geometric.loader import DataLoader
@@ -16,24 +16,29 @@ class CustomDataset(Dataset):
 
     def __init__(self, dataframe, device='auto'):
         self.len = len(dataframe)
-        feature = dataframe['feature']
+        feature = dataframe['feature'].values
         edge_index = dataframe['edge_index'][0]
-        target = dataframe['target']
+        target = dataframe['target'].values.astype(np.int64)
         if device == 'auto':
-            self.device = ("cuda" if torch.cuda.is_available() else
-                           "mps" if torch.backends.mps.is_available() else "cpu")
+            self.device = ("cuda" if torch.cuda.is_available() else "mps"
+                           if torch.backends.mps.is_available() else "cpu")
         else:
             self.device = device
-        X = torch.from_numpy(np.array([f for f in feature])).to(
-            torch.float32)
+        X = torch.from_numpy(np.array([np.array(f)
+                                       for f in feature])).to(torch.float32)
+
         edge_index = torch.from_numpy(
             np.array(edge_index)).t().contiguous().to(torch.long)
-        y = [torch.tensor(t).to(self.device) for t in target]
-        self.data = [Data(x=X[i], edge_index=edge_index, y=y[i]).to(self.device) for i in range(self.len)]
+
+        y = torch.from_numpy(target).to(torch.long)
+
+        self.data = [
+            Data(x=X[i], edge_index=edge_index, y=y[i]).to(self.device)
+            for i in range(self.len)
+        ]
+
         classweight = class_weight.compute_class_weight(
-            class_weight='balanced',
-            classes=np.unique(target),
-            y=np.array(target))
+            class_weight='balanced', classes=np.unique(target), y=target)
         print(f'Class weight:{classweight}')
         self.class_weights = torch.tensor(classweight,
                                           dtype=torch.float).to(self.device)
@@ -49,18 +54,19 @@ class GCNClassifier(nn.Module):
 
     def __init__(self, input_size, output_size, dropout, device='auto'):
         super().__init__()
-        self.conv1 = GCNConv(input_size, 64)
-        self.conv2 = GCNConv(64, 32)
-        self.conv3 = GCNConv(32, 32)
-        self.lin = nn.Linear(32, output_size)
+        self.conv1 = GraphConv(input_size, 64)
+        self.conv2 = GraphConv(64, 64)
+        self.conv3 = GraphConv(64, 32)
+        self.lin1 = nn.Linear(32, 16)
+        self.lin2 = nn.Linear(16, output_size)
         self.dropout = dropout
 
         if device == 'auto':
-            self.device = ("cuda" if torch.cuda.is_available() else
-                           "mps" if torch.backends.mps.is_available() else "cpu")
+            self.device = ("cuda" if torch.cuda.is_available() else "mps"
+                           if torch.backends.mps.is_available() else "cpu")
         else:
             self.device = device
-        
+
         print(f"Using {self.device} device")
 
     def forward(self, x, edge_index, batch):
@@ -71,7 +77,10 @@ class GCNClassifier(nn.Module):
         x = self.conv3(x, edge_index)
         x = global_mean_pool(x, batch)
         x = F.dropout(x, p=self.dropout, training=self.training)
-        x = self.lin(x)
+        x = self.lin1(x)
+        x = F.relu(x)
+        x = F.dropout(x, p=self.dropout, training=self.training)
+        x = self.lin2(x)
         return x
 
 
@@ -110,7 +119,8 @@ def test_loop(dataloader, model, loss_fn):
         for data in dataloader:
             pred = model(data.x, data.edge_index, data.batch)
             test_loss += loss_fn(pred, data.y).item()
-            correct += (pred.argmax(1) == data.y).type(torch.float).sum().item()
+            correct += (pred.argmax(1) == data.y).type(
+                torch.float).sum().item()
             size += len(data.y)
 
     test_loss /= num_batches
@@ -136,7 +146,8 @@ def confusematrixtest(dataloader, model, loss_fn, class_name):
         for data in dataloader:
             pred = model(data.x, data.edge_index, data.batch)
             test_loss += loss_fn(pred, data.y).item()
-            correct += (pred.argmax(1) == data.y).type(torch.float).sum().item()
+            correct += (pred.argmax(1) == data.y).type(
+                torch.float).sum().item()
             size += len(data.y)
             pred_list.extend(pred.argmax(1).cpu())
             y_list.extend(data.y.cpu())
@@ -275,8 +286,8 @@ def getmodel(model, path_to_model, device='auto'):
     model.load_state_dict(
         torch.load(path_to_model, map_location=torch.device('cpu')))
     if device == 'auto':
-            model.device = ("cuda" if torch.cuda.is_available() else
-                           "mps" if torch.backends.mps.is_available() else "cpu")
+        model.device = ("cuda" if torch.cuda.is_available() else
+                        "mps" if torch.backends.mps.is_available() else "cpu")
     else:
         model.device = device
     model.to(model.device)

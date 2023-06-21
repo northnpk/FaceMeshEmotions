@@ -3,9 +3,9 @@ import facemeshGCN as classifier
 
 data = preprocess.FERdata('challenges-in-representation-learning-facial-expression-recognition-challenge/icml_face_data.csv')
 
-# result = data.get_df(mode='GNN',sample=True, sample_size=100)
-result = data.get_df(mode='GNN',sample=False)
-result = data.balance_df('up')
+result = data.get_df(mode='GNN',sample=True, sample_size=100)
+# result = data.get_df(mode='GNN',sample=False)
+# result = data.balance_df('up')
 # data.save_df('./facemesh_df.csv')
 
 print(result.head(10))
@@ -14,11 +14,11 @@ train_df = result[result['usage'] == 'train'].drop(columns='usage').sample(frac=
 val_df = result[result['usage'] == 'val'].drop(columns='usage').sample(frac=1, ignore_index=True)
 test_df = result[result['usage'] == 'test'].drop(columns='usage').sample(frac=1, ignore_index=True)
 
-model = classifier.GCNClassifier(input_size=3, output_size=7, dropout=0.5, device='cpu')
+model = classifier.GCNClassifier(input_size=3, output_size=7, dropout=0.2, device='cpu')
 # model = classifier.ANNClassifier(input_size=48*48*3, output_size=7, dropout=0.5)
 # model = classifier.getmodel(model, './model/FERplusmeshANNColab.pt')
 print(model)
-model, test_loss, correct = classifier.trainmodel(model, train_df, val_df, test_df, epochs=100, lr=1e-5, batch_size=1024, plot=True, class_name = data.class_name)
+model, test_loss, correct = classifier.trainmodel(model, train_df, val_df, test_df, epochs=1000, lr=1e-3, batch_size=1024, plot=True, class_name = data.class_name)
 
 # best_model = None
 # min_loss = 99999.9
