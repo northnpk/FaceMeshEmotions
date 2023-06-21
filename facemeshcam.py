@@ -30,7 +30,7 @@ with mp_face_mesh.FaceMesh(
         image = cv2.cvtColor(image, cv2.COLOR_RGB2BGR)
         if results.multi_face_landmarks:
             for face_landmarks in results.multi_face_landmarks:
-                # print('face_landmarks:', face_landmarks)
+                print('face_landmarks:', face_landmarks)
                 mp_drawing.draw_landmarks(
                     image=image,
                     landmark_list=face_landmarks,

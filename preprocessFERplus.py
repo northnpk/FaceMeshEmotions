@@ -10,7 +10,10 @@ mp_face_mesh = mp.solutions.face_mesh
 
 tqdm.pandas()
 
-FERclassName = ['Angry', 'Disgust', 'Fear', 'Happy', 'Sad', 'Surprise', 'Neutral']
+FERclassName = [
+    'Angry', 'Disgust', 'Fear', 'Happy', 'Sad', 'Surprise', 'Neutral'
+]
+
 
 class FERdata(object):
 
@@ -91,7 +94,7 @@ def to_img(row):
 
 
 def prepareforANN(lanmarks):
-    return [[landmark.x, landmark.y, landmark.z]for landmark in lanmarks]
+    return [[landmark.x, landmark.y, landmark.z] for landmark in lanmarks]
 
 
 def drawalllandmark(annotated_image, result):
@@ -187,7 +190,32 @@ def getlandmark(df, mode, draw, map, cmap):
                 ],
                                    ignore_index=True)
 
-            elif mode == 'IMGANN':
+            elif mode == 'GNN':
+                result = face_mesh.process(img)
+                if not result.multi_face_landmarks:
+                    continue
+
+                np_landmark = prepareforANN(
+                    result.multi_face_landmarks[0].landmark)
+                edge_index = list(mp_face_mesh.FACEMESH_TESSELATION)
+                if draw == True:
+                    annotated_image = cv2.cvtColor(data[1],
+                                                   cv2.COLOR_GRAY2RGB).copy()
+                    annotated_image = drawalllandmark(annotated_image, result)
+                    draw_img.append(annotated_image)
+
+                new_df = pd.concat([
+                    new_df,
+                    pd.DataFrame([[
+                        usage_map[data[0]], np_landmark, edge_index, emotion
+                    ]],
+                                 columns=[
+                                     'usage', 'feature', 'edge_index', 'target'
+                                 ])
+                ],
+                                   ignore_index=True)
+
+            elif mode == 'IMG':
                 new_df = pd.concat([
                     new_df,
                     pd.DataFrame([[
@@ -199,7 +227,7 @@ def getlandmark(df, mode, draw, map, cmap):
                                    ignore_index=True)
 
             else:
-                print('Currently have only ANN, IMGANN mode')
+                print('Currently have only ANN, IMG, and GNN mode')
                 break
 
         if draw is True:
