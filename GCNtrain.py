@@ -18,7 +18,7 @@ model = classifier.GCNClassifier(input_size=3, output_size=7, dropout=0.2, devic
 # model = classifier.ANNClassifier(input_size=48*48*3, output_size=7, dropout=0.5)
 # model = classifier.getmodel(model, './model/FERplusmeshANNColab.pt')
 print(model)
-model, test_loss, correct = classifier.trainmodel(model, train_df, val_df, test_df, epochs=1000, lr=1e-3, batch_size=1024, plot=True, class_name = data.class_name)
+model, test_loss, correct = classifier.trainmodel(model, train_df, val_df, test_df, epochs=100, lr=1e-4, batch_size=1024, plot=True, class_name = data.class_name)
 
 # best_model = None
 # min_loss = 99999.9
