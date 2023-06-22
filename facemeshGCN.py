@@ -54,11 +54,9 @@ class GCNClassifier(nn.Module):
 
     def __init__(self, input_size, output_size, dropout, device='auto'):
         super().__init__()
-        self.conv1 = GraphConv(input_size, 64)
-        self.conv2 = GraphConv(64, 64)
-        self.conv3 = GraphConv(64, 32)
-        self.lin1 = nn.Linear(32, 16)
-        self.lin2 = nn.Linear(16, output_size)
+        self.conv1 = GraphConv(input_size, 8)
+        self.conv2 = GraphConv(8, 8)
+        self.lin2 = nn.Linear(8, output_size)
         self.dropout = dropout
 
         if device == 'auto':
@@ -74,12 +72,12 @@ class GCNClassifier(nn.Module):
         x = F.relu(x)
         x = self.conv2(x, edge_index)
         x = F.relu(x)
-        x = self.conv3(x, edge_index)
+        # x = self.conv3(x, edge_index)
         x = global_mean_pool(x, batch)
         x = F.dropout(x, p=self.dropout, training=self.training)
-        x = self.lin1(x)
-        x = F.relu(x)
-        x = F.dropout(x, p=self.dropout, training=self.training)
+        # x = self.lin1(x)
+        # x = F.relu(x)
+        # x = F.dropout(x, p=self.dropout, training=self.training)
         x = self.lin2(x)
         return x
 
@@ -172,7 +170,9 @@ def trainmodel(model,
                lr=1e-4,
                batch_size=8,
                plot=False,
-               class_name=None):
+               class_name=None, 
+               weights=False,
+               scheduler=None):
     device = model.device
     print(f'devices:{device}')
 
@@ -183,26 +183,28 @@ def trainmodel(model,
     train_loader = DataLoader(train_dataset, batch_size=batch_size)
     val_loader = DataLoader(val_dataset, batch_size=batch_size, shuffle=True)
     test_loader = DataLoader(test_dataset, batch_size=batch_size, shuffle=True)
-
+    
     class_weights = torch.tensor([
         1.0971897, 19.12244898, 1.08826945, 0.53757889, 0.81125541, 1.26280323,
         0.81125541
     ],
                                  dtype=torch.float).to(device)
-    # loss_fn = nn.CrossEntropyLoss(weight=class_weights, reduction='mean')
-    loss_fn = nn.CrossEntropyLoss()
-    # optimizer = torch.optim.SGD(model.parameters(), lr=lr, momentum=0.9, weight_decay=1e-4)
-    optimizer = torch.optim.Adam(model.parameters(), lr=lr)
-    scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(
-        optimizer,
-        mode='min',
-        factor=0.1,
-        patience=10,
-        threshold=0.0001,
-        threshold_mode='rel',
-        cooldown=0,
-        min_lr=4e-6,
-        eps=1e-08)
+    if weights :
+        loss_fn = nn.CrossEntropyLoss(weight=class_weights, reduction='mean')
+    else:
+        loss_fn = nn.CrossEntropyLoss()
+    optimizer = torch.optim.SGD(model.parameters(), lr=lr, momentum=0.9, weight_decay=1e-4)
+    # optimizer = torch.optim.Adam(model.parameters(), lr=lr, weight_decay=5e-4)
+    # scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(
+    #     optimizer,
+    #     mode='min',
+    #     factor=0.1,
+    #     patience=10,
+    #     threshold=0.0001,
+    #     threshold_mode='rel',
+    #     cooldown=0,
+    #     min_lr=4e-6,
+    #     eps=1e-08)
 
     train_loss = torch.tensor(0)
     train_acc = torch.tensor(0)
@@ -236,7 +238,9 @@ def trainmodel(model,
                 test_loss, test_acc = test_loop(test_loader, model, loss_fn)
             else:
                 val_loss, val_acc = test_loop(val_loader, model, loss_fn)
-
+                
+        if scheduler:
+            scheduler.step(val_loss)
         # scheduler.step(val_loss)
         train_loss_backup.append(train_loss)
         train_acc_backup.append(train_acc)
