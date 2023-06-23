@@ -8,7 +8,7 @@ import facemeshANN as classifier
 import preprocessFERplus as preprocess
 converter = preprocess.prepareforANN
 model = classifier.ANNClassifier(input_size=478*3, output_size=7, dropout=0.5)
-model = classifier.getmodel(model, './model/FERplusmeshANN.pt')
+model = classifier.getmodel(model, './model/FERplusmeshANNColab.pt')
 FERclassName = [
     'Angry', 'Disgust', 'Fear', 'Happy', 'Sad', 'Surprise', 'Neutral'
 ]

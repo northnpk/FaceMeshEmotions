@@ -3,7 +3,7 @@ import facemeshGCN as classifier
 
 data = preprocess.FERdata('challenges-in-representation-learning-facial-expression-recognition-challenge/icml_face_data.csv')
 
-result = data.get_df(mode='GNN')
+result = data.get_df(mode='GNN', sample=True, sample_size=100)
 # result = data.get_df(mode='GNN',sample=False)
 result = data.balance_df('down')
 # data.save_df('./facemesh_df.csv')
@@ -15,8 +15,7 @@ val_df = result[result['usage'] == 'val'].drop(columns='usage').sample(frac=1, i
 test_df = result[result['usage'] == 'test'].drop(columns='usage').sample(frac=1, ignore_index=True)
 
 model = classifier.GCNClassifier(input_size=3, output_size=7, dropout=0.3, device='cpu')
-# model = classifier.ANNClassifier(input_size=48*48*3, output_size=7, dropout=0.5)
-model = classifier.getmodel(model, './model/FERplusmeshGCN-small.pt', device='cpu')
+# model = classifier.ANNClassifier(input_size=48*48*3, output_size=7, dropout=0.5)s
 print(model)
 model, test_loss, correct = classifier.trainmodel(model, train_df, val_df, test_df, epochs=100, lr=1e-2, batch_size=32, plot=True, class_name = data.class_name)
 
@@ -31,4 +30,4 @@ model, test_loss, correct = classifier.trainmodel(model, train_df, val_df, test_
 #         min_loss = test_loss
 
 # print(f'min loss is {np.array(min_loss).argmin()}')
-classifier.savemodel(model, save_path='./model/FERplusmeshGCN.pt')
+# classifier.savemodel(model, save_path='./model/FERplusmeshGCN.pt')
