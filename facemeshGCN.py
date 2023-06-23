@@ -52,21 +52,17 @@ class CustomDataset(Dataset):
 
 class GCNClassifier(nn.Module):
 
-    def __init__(self, input_size, output_size, dropout, device='auto'):
+    def __init__(self, input_size, output_size, dropout=0.2, mlp_hidden=2, gcn_hidden=2, device='auto'):
         super().__init__()
         self.dropout_p = dropout
         self.conv = [self.create_conv(input_size, 64)]
-        for _ in range(2):
+        for _ in range(gcn_hidden):
             self.conv.append(self.create_conv(64, 64))
-        self.mlp = nn.Sequential(
-            nn.Linear(64, 64),
-            F.relu(),
-            F.dropout(p=self.dropout_p, training=self.training),
-            nn.Linear(64, 64),
-            F.relu(),
-            F.dropout(p=self.dropout_p, training=self.training),
-            nn.Linear(64, output_size)
-        )
+        self.mlp = []
+        for _ in range(mlp_hidden):
+            self.mlp.append(nn.Linear(64, 64))
+        self.lastlinear = nn.Linear(64, output_size)
+            
 
         if device == 'auto':
             self.device = ("cuda" if torch.cuda.is_available() else "mps"
@@ -85,7 +81,11 @@ class GCNClassifier(nn.Module):
             x = F.relu(x)
             x = F.dropout(x, p=self.dropout_p, training=self.training)
         x = global_mean_pool(x, batch)
-        return self.mlp(x)
+        for linear in self.mlp:
+            x = linear(x)
+            x = F.relu(x)
+            x = F.dropout(x, p=self.dropout_p, training=self.training)
+        return self.lastlinear(x)
 
 
 def train_loop(dataloader, model, loss_fn, optimizer):
