@@ -261,6 +261,7 @@ def getmodel(model, path_to_model):
         torch.load(path_to_model, map_location=torch.device('cpu')))
     model.device = ("cuda" if torch.cuda.is_available() else
                     "mps" if torch.backends.mps.is_available() else "cpu")
+    model.to(model.device)
     model.eval()
     return model
 

@@ -52,7 +52,13 @@ class CustomDataset(Dataset):
 
 class GCNClassifier(nn.Module):
 
-    def __init__(self, input_size, output_size, dropout=0.2, mlp_hidden=2, gcn_hidden=2, device='auto'):
+    def __init__(self,
+                 input_size,
+                 output_size,
+                 dropout=0.2,
+                 mlp_hidden=2,
+                 gcn_hidden=2,
+                 device='auto'):
         super().__init__()
         self.dropout_p = dropout
         self.conv = [self.create_conv(input_size, 64)]
@@ -60,9 +66,8 @@ class GCNClassifier(nn.Module):
             self.conv.append(self.create_conv(64, 64))
         self.mlp = []
         for _ in range(mlp_hidden):
-            self.mlp.append(nn.Linear(64, 64))
+            self.mlp.append(self.create_mlp(64, 64))
         self.lastlinear = nn.Linear(64, output_size)
-            
 
         if device == 'auto':
             self.device = ("cuda" if torch.cuda.is_available() else "mps"
@@ -71,9 +76,12 @@ class GCNClassifier(nn.Module):
             self.device = device
 
         print(f"Using {self.device} device")
-        
+
     def create_conv(self, input_size, output_size):
         return GraphConv(input_size, output_size)
+    
+    def create_mlp(self, input_size, output_size):
+        return nn.Linear(input_size, output_size)
 
     def forward(self, x, edge_index, batch):
         for conv in self.conv:
@@ -176,7 +184,7 @@ def trainmodel(model,
                lr=1e-4,
                batch_size=8,
                plot=False,
-               class_name=None, 
+               class_name=None,
                weights=False,
                scheduler=None):
     device = model.device
@@ -189,13 +197,13 @@ def trainmodel(model,
     train_loader = DataLoader(train_dataset, batch_size=batch_size)
     val_loader = DataLoader(val_dataset, batch_size=batch_size, shuffle=True)
     test_loader = DataLoader(test_dataset, batch_size=batch_size, shuffle=True)
-    
+
     class_weights = torch.tensor([
         1.0971897, 19.12244898, 1.08826945, 0.53757889, 0.81125541, 1.26280323,
         0.81125541
     ],
                                  dtype=torch.float).to(device)
-    if weights :
+    if weights:
         loss_fn = nn.CrossEntropyLoss(weight=class_weights, reduction='mean')
     else:
         loss_fn = nn.CrossEntropyLoss()
@@ -244,7 +252,7 @@ def trainmodel(model,
                 test_loss, test_acc = test_loop(test_loader, model, loss_fn)
             else:
                 val_loss, val_acc = test_loop(val_loader, model, loss_fn)
-                
+
         if scheduler:
             scheduler.step(val_loss)
         # scheduler.step(val_loss)
@@ -305,5 +313,7 @@ def getmodel(model, path_to_model, device='auto'):
     return model
 
 
-def predict(model, X):
-    return model(torch.from_numpy(X).to(torch.float32).to(model.device))
+def predict(model, X, edge_index, batch=1):
+    return model(torch.from_numpy(np.array(X)).to(torch.float32).to(model.device),
+                 torch.from_numpy(np.array(edge_index)).t().contiguous().to(torch.long).to(model.device),
+                 batch.to(torch.long).to(model.device))
