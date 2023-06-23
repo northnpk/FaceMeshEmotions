@@ -54,10 +54,19 @@ class GCNClassifier(nn.Module):
 
     def __init__(self, input_size, output_size, dropout, device='auto'):
         super().__init__()
-        self.conv1 = GraphConv(input_size, 8)
-        self.conv2 = GraphConv(8, 8)
-        self.lin2 = nn.Linear(8, output_size)
-        self.dropout = dropout
+        self.dropout_p = dropout
+        self.conv = [self.create_conv(input_size, 64)]
+        for _ in range(2):
+            self.conv.append(self.create_conv(64, 64))
+        self.mlp = nn.Sequential(
+            nn.Linear(64, 64),
+            F.relu(),
+            F.dropout(p=self.dropout_p, training=self.training),
+            nn.Linear(64, 64),
+            F.relu(),
+            F.dropout(p=self.dropout_p, training=self.training),
+            nn.Linear(64, output_size)
+        )
 
         if device == 'auto':
             self.device = ("cuda" if torch.cuda.is_available() else "mps"
@@ -66,20 +75,17 @@ class GCNClassifier(nn.Module):
             self.device = device
 
         print(f"Using {self.device} device")
+        
+    def create_conv(self, input_size, output_size):
+        return GraphConv(input_size, output_size)
 
     def forward(self, x, edge_index, batch):
-        x = self.conv1(x, edge_index)
-        x = F.relu(x)
-        x = self.conv2(x, edge_index)
-        x = F.relu(x)
-        # x = self.conv3(x, edge_index)
+        for conv in self.conv:
+            x = conv(x, edge_index)
+            x = F.relu(x)
+            x = F.dropout(x, p=self.dropout_p, training=self.training)
         x = global_mean_pool(x, batch)
-        x = F.dropout(x, p=self.dropout, training=self.training)
-        # x = self.lin1(x)
-        # x = F.relu(x)
-        # x = F.dropout(x, p=self.dropout, training=self.training)
-        x = self.lin2(x)
-        return x
+        return self.mlp(x)
 
 
 def train_loop(dataloader, model, loss_fn, optimizer):
@@ -193,8 +199,8 @@ def trainmodel(model,
         loss_fn = nn.CrossEntropyLoss(weight=class_weights, reduction='mean')
     else:
         loss_fn = nn.CrossEntropyLoss()
-    optimizer = torch.optim.SGD(model.parameters(), lr=lr, momentum=0.9, weight_decay=1e-4)
-    # optimizer = torch.optim.Adam(model.parameters(), lr=lr, weight_decay=5e-4)
+    # optimizer = torch.optim.SGD(model.parameters(), lr=lr, momentum=0.9, weight_decay=1e-4)
+    optimizer = torch.optim.Adam(model.parameters(), lr=lr)
     # scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(
     #     optimizer,
     #     mode='min',
