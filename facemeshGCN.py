@@ -56,18 +56,24 @@ class GCNClassifier(nn.Module):
                  input_size,
                  output_size,
                  dropout=0.2,
-                 mlp_hidden=2,
-                 gcn_hidden=2,
                  device='auto'):
         super().__init__()
         self.dropout_p = dropout
-        self.conv = [self.create_conv(input_size, 64)]
-        for _ in range(gcn_hidden):
-            self.conv.append(self.create_conv(64, 64))
-        self.mlp = []
-        for _ in range(mlp_hidden):
-            self.mlp.append(self.create_mlp(64, 64))
-        self.lastlinear = nn.Linear(64, output_size)
+        self.conv1 = GraphConv(input_size, 64)
+        self.conv2 = GraphConv(64, 64)
+        self.conv3 = GraphConv(64, 64)
+        self.linear_relu_stack = nn.Sequential(
+            nn.Linear(64, 64),
+            nn.ReLU(),
+            nn.Dropout(self.dropout_p),
+            nn.Linear(64, 64),
+            nn.ReLU(),
+            nn.Dropout(self.dropout_p),
+            nn.Linear(64, 64),
+            nn.ReLU(),
+            nn.Dropout(self.dropout_p),
+            nn.Linear(64, output_size),
+        )
 
         if device == 'auto':
             self.device = ("cuda" if torch.cuda.is_available() else "mps"
@@ -77,24 +83,17 @@ class GCNClassifier(nn.Module):
 
         print(f"Using {self.device} device")
 
-    def create_conv(self, input_size, output_size):
-        return GraphConv(input_size, output_size)
-    
-    def create_mlp(self, input_size, output_size):
-        return nn.Linear(input_size, output_size)
-
     def forward(self, x, edge_index, batch):
-        for conv in self.conv:
-            x = conv(x, edge_index)
-            x = F.relu(x)
-            x = F.dropout(x, p=self.dropout_p, training=self.training)
+        x = self.conv1(x, edge_index)
+        x = F.relu(x)
+        x = self.conv2(x, edge_index)
+        x = F.relu(x)
+        x = F.dropout(x, p=self.dropout_p, training=self.training)
+        x = self.conv3(x, edge_index)
+        x = F.relu(x)
         x = global_mean_pool(x, batch)
-        for linear in self.mlp:
-            x = linear(x)
-            x = F.relu(x)
-            x = F.dropout(x, p=self.dropout_p, training=self.training)
-        return self.lastlinear(x)
-
+        x = self.linear_relu_stack(x)
+        return x
 
 def train_loop(dataloader, model, loss_fn, optimizer):
     size = 0
