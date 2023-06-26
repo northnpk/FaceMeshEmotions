@@ -40,6 +40,7 @@ class FERdata(object):
 
     def get_df(self,
                mode='ANN',
+               with_img = False,
                drawlandmarks=False,
                mapping=False,
                cmap='GRAY',
@@ -61,12 +62,12 @@ class FERdata(object):
             ])
             print('Prepare data to img')
             self.df['img'] = self.df.progress_apply(to_img, axis=1)
-            self.df = getlandmark(self.df, mode, drawlandmarks, mapping, cmap)
+            self.df = getlandmark(self.df, mode, drawlandmarks, mapping, cmap, with_img)
             return self.df
         else:
             print('Prepare data to img')
             self.df['img'] = self.df.progress_apply(to_img, axis=1)
-            self.df = getlandmark(self.df, mode, drawlandmarks, mapping, cmap)
+            self.df = getlandmark(self.df, mode, drawlandmarks, mapping, cmap, with_img)
             return self.df
 
 
@@ -141,9 +142,9 @@ def emotionmapping(emotion):
         return 'neutral'
 
 
-def getlandmark(df, mode, draw, map, cmap):
+def getlandmark(df, mode, draw, map, cmap, with_img):
     new_df = pd.DataFrame(columns=['usage', 'feature', 'target'])
-    draw_img = []
+    draw_img, real_img = [], []
     usage_map = {
         'Training': 'train',
         'PublicTest': 'val',
@@ -204,6 +205,8 @@ def getlandmark(df, mode, draw, map, cmap):
                                                    cv2.COLOR_GRAY2RGB).copy()
                     annotated_image = drawalllandmark(annotated_image, result)
                     draw_img.append(annotated_image)
+                if with_img == True:
+                    real_img.append(data[1])
                 
                 new_df = pd.concat([
                     new_df,
@@ -231,6 +234,9 @@ def getlandmark(df, mode, draw, map, cmap):
 
         if draw is True:
             new_df['draw_img'] = draw_img
+        
+        if with_img is True:
+            new_df['img'] = real_img
 
         print(
             f'Distribution of Train: \n{new_df[new_df["usage"] == "train"]["target"].value_counts()}'
