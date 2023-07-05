@@ -1,4 +1,8 @@
-```import torch
+```
+pip3 install -r requirements.txt
+```
+```
+import torch
 import os
 os.environ['TORCH'] = torch.__version__
 print(torch.__version__)
