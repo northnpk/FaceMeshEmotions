@@ -11,7 +11,7 @@ mp_face_mesh = mp.solutions.face_mesh
 tqdm.pandas()
 
 FERclassName = [
-    'Angry', 'Disgust', 'Fear', 'Happy', 'Sad', 'Surprise', 'Neutral'
+    'Angry', 'Disgust', 'Fear', 'Happy', 'Sad', 'Surprise', 'Neutral', 'None'
 ]
 
 
@@ -126,20 +126,7 @@ def drawalllandmark(annotated_image, result):
 
 
 def emotionmapping(emotion):
-    if emotion == 0:
-        return 'anger'
-    elif emotion == 1:
-        return 'disgust'
-    elif emotion == 2:
-        return 'fear'
-    elif emotion == 3:
-        return 'happy'
-    elif emotion == 4:
-        return 'sad'
-    elif emotion == 5:
-        return 'surprise'
-    elif emotion == 6:
-        return 'neutral'
+    return FERclassName.index(emotion)
 
 
 def getlandmark(df, mode, draw, map, cmap, with_img):

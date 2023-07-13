@@ -267,4 +267,5 @@ def getmodel(model, path_to_model):
 
 
 def predict(model, X):
-    return model(torch.from_numpy(X).to(torch.float32).to(model.device))
+    return nn.functional.softmax(
+        model(torch.from_numpy(X).to(torch.float32).to(model.device)))

@@ -2,6 +2,7 @@ import cv2
 import mediapipe as mp
 import numpy as np
 from scipy import stats
+import time
 
 import facemeshANN as classifier
 import preprocessFERplus as preprocess
@@ -21,8 +22,8 @@ model = classifier.ANNClassifier(input_size=478 * 3,
 model = classifier.getmodel(model, './model/FERplusmeshANNColab.pt')
 
 broker = '192.168.64.132'
-port = 8765
-topic = "North/facemesh"
+port = 1883
+topic = "facial_exp"
 # generate client ID with pub prefix randomly
 client_id = f'facemesh-pub'
 
@@ -30,10 +31,21 @@ FERclassName = [
     'Angry', 'Disgust', 'Fear', 'Happy', 'Sad', 'Surprise', 'Neutral', 'None'
 ]
 
+RussellclassName = {
+    'Happy': 'Happy',
+    'Surprise': 'Happy',
+    'Angry': 'Anger',
+    'Fear': 'Anger',
+    'Disgust': 'Anger',
+    'Sad': 'Sadness',
+    'Neutral': 'Neutral',
+    'None': 'None'
+}
+
 
 def drawing(drawer, image, landmark_list, connections, landmark_drawing_spec,
             connection_drawing_spec):
-    
+
     drawer.draw_landmarks(image=image,
                           landmark_list=landmark_list,
                           connections=connections,
@@ -49,13 +61,34 @@ def labeling(image, landmark_list, emotions, num):
                         int(landmark_list[10].y * image.shape[0])),
                        cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 255, 0), 2,
                        cv2.LINE_AA)
-    
-def emo_to_dict(d, emotions):
-    d = {}
-    for i in range(len(emotions)):
-        d[f'face{i}'] = FERclassName[int(emotions[i])]
+
+
+def emo_to_dict(emotions,
+                confident=None,
+                face_sizes=None,
+                russell=False,
+                d=dict()):
+    for i in range(d['num_faces']):
+        face = {}
+        face['emotion'] = RussellclassName[FERclassName[int(emotions[i])]]
+        face['pred_emo'] = FERclassName[int(emotions[i])]
+        if confident is not None:
+            face['confident'] = round(confident[i] * 100, 4)
+        if face_sizes is not None:
+            face['face_size'] = round(face_sizes[i], 4)
+        d[f'face{i}'] = face
+
+    # print(d)
     return d
-    
+
+
+def face_size_cals(landmarks):
+    w = np.max(landmarks[:, 0]) - np.min(landmarks[:, 0])
+    h = np.max(landmarks[:, 1]) - np.min(landmarks[:, 1])
+    # print(w*h)
+    return round(w * h, 4)
+
+
 def connect_mqtt():
 
     def on_connect(client, userdata, flags, rc):
@@ -69,7 +102,8 @@ def connect_mqtt():
     client.connect(broker, port)
     return client
 
-client = connect_mqtt()
+
+# client = connect_mqtt()
 
 
 def publish(client, topic, msg):
@@ -86,9 +120,16 @@ def publish(client, topic, msg):
 drawing_spec = mp_drawing.DrawingSpec(thickness=1, circle_radius=1)
 cap = cv2.VideoCapture(0)
 frame_count = 0
+num_faces = 0
 max_num_faces = 4
 n_frames = 10
 results_mat = np.ones((max_num_faces, n_frames)) * 7
+face_sizes = np.zeros(max_num_faces)
+conf = np.zeros(max_num_faces)
+# used to record the time when we processed last frame
+prev_frame_time = 0
+# used to record the time at which we processed current frame
+new_frame_time = 0
 
 with mp_face_mesh.FaceMesh(max_num_faces=max_num_faces,
                            refine_landmarks=True,
@@ -102,6 +143,7 @@ with mp_face_mesh.FaceMesh(max_num_faces=max_num_faces,
             continue
         # To improve performance, optionally mark the image as not writeable to
         # pass by reference.
+        # new_frame_time = time.time()
         image.flags.writeable = False
         image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
         results = face_mesh.process(image)
@@ -109,11 +151,15 @@ with mp_face_mesh.FaceMesh(max_num_faces=max_num_faces,
         image.flags.writeable = True
         image = cv2.cvtColor(image, cv2.COLOR_RGB2BGR)
         if results.multi_face_landmarks:
+            num_faces = len(results.multi_face_landmarks)
             for i, face_landmarks in enumerate(results.multi_face_landmarks):
                 emotions = classifier.predict(
                     model, np.array([converter(face_landmarks.landmark)]))
                 # print(f'face {i}:{FERclassName[emotions.argmax(1).item()]}')
                 results_mat[i, frame_count] = emotions.argmax(1).item()
+                conf[i] = emotions.max()
+                face_sizes[i] = face_size_cals(
+                    np.array(converter(face_landmarks.landmark)))
                 # print(f'face {i}:{results_mat[i]}')
                 image = drawing(
                     mp_drawing, image, face_landmarks,
@@ -133,14 +179,22 @@ with mp_face_mesh.FaceMesh(max_num_faces=max_num_faces,
         # Flip the image horizontally for a selfie-view display.
         # cv2.imshow('MediaPipe Face Mesh', cv2.flip(image, 1))
         cv2.imshow('MediaPipe Face Mesh', image)
+        # fps = 1/(new_frame_time-prev_frame_time)
+        # prev_frame_time = new_frame_time
+        # print(f'fps: {fps}')
         frame_count += 1
         if frame_count == n_frames:
             emo = stats.mode(results_mat, axis=1)[0].flatten().tolist()
-            msg = json.dumps(emo_to_dict({}, emo))
+            d = {"name": "facemesh data", 'num_faces': num_faces}
+            msg = json.dumps(emo_to_dict(emo, conf, face_sizes, True,
+                                         d))  # with confident and face size
+            # msg = json.dumps(emo_to_dict(emotions=emo, d=d)) # without confident and face size
             print(msg)
             frame_count = 0
             results_mat = np.ones((max_num_faces, n_frames)) * 7
-            publish(client, topic, msg)
+            face_sizes = np.zeros(max_num_faces)
+            conf = np.zeros(max_num_faces)
+            # publish(client, topic, msg)
         if cv2.waitKey(5) & 0xFF == 27:
             break
 cap.release()
