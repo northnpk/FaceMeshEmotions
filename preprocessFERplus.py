@@ -3,6 +3,7 @@ import pandas as pd
 import cv2
 from tqdm import tqdm
 import mediapipe as mp
+from scipy.spatial.transform import Rotation as R
 
 mp_drawing = mp.solutions.drawing_utils
 mp_drawing_styles = mp.solutions.drawing_styles
@@ -14,6 +15,16 @@ FERclassName = [
     'Angry', 'Disgust', 'Fear', 'Happy', 'Sad', 'Surprise', 'Neutral', 'None'
 ]
 
+RussellclassName = {
+    'Happy': 'Happy',
+    'Surprise': 'Happy',
+    'Angry': 'Anger',
+    'Fear': 'Anger',
+    'Disgust': 'Anger',
+    'Sad': 'Sadness',
+    'Neutral': 'Neutral',
+    'None': 'None'
+}
 
 class FERdata(object):
 
@@ -94,9 +105,17 @@ def to_img(row):
     return np.array(row[' pixels'].split(' ')).reshape(48, 48).astype('uint8')
 
 
-def prepareforANN(lanmarks):
-    return [[landmark.x, landmark.y, landmark.z] for landmark in lanmarks]
-
+def prepareforANN(lanmarks, rotation=True, reposition=True):
+    mesh = np.array([[landmark.x, landmark.y, landmark.z] for landmark in lanmarks])
+    if reposition == True:
+        mesh = re_pos(mesh)
+    if rotation == True:
+        u,v,w = get_ref(mesh)
+        x = np.array([1., 0., 0.])
+        y = np.array([0., -1., 0.])
+        z = np.array([0., 0., -1.])
+        mesh = rot(mesh, u,v,w, x,y,z)
+    return mesh
 
 def drawalllandmark(annotated_image, result):
     for face_landmarks in result.multi_face_landmarks:
@@ -128,6 +147,40 @@ def drawalllandmark(annotated_image, result):
 def emotionmapping(emotion):
     return FERclassName.index(emotion)
 
+def re_pos(mesh):
+    # print(f'shift from: {mesh[1]}')
+    origin = mesh[1] - np.array([0, 0, 0])
+    mesh = mesh - origin
+    return mesh
+
+def unit_vector(vector):
+    """ Returns the unit vector of the vector.  """
+    return vector / np.linalg.norm(vector)
+
+def rot(mesh, u,v,w, x,y,z):
+    r = R.from_matrix([u,v,w])
+    ref_r = R.from_matrix([x,y,z])
+    rotation = ref_r * r
+    # mesh = r.apply(mesh)
+    # mesh = ref_r.apply(mesh)
+    mesh = rotation.apply(mesh)
+    # print(r.as_euler('xyz', degrees=True))
+    return mesh
+
+def get_ref(mesh):
+    p0 = mesh[1]
+    p1 = mesh[5]
+    p2 = mesh[44]
+    p3 = mesh[274]
+    v1 = p2 - p1
+    v2 = p3 - p1
+    v3 = p0 - p1
+    v4 = p0 - mesh[4]
+    w = unit_vector(np.cross(v1, v2))
+    ref = unit_vector(np.cross(v3, v4))
+    v = unit_vector(np.cross(w, ref))
+    u = unit_vector(np.cross(v, w))
+    return u,v,w
 
 def getlandmark(df, mode, draw, map, cmap, with_img):
     new_df = pd.DataFrame(columns=['usage', 'feature', 'target'])

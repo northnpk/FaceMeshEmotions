@@ -70,8 +70,12 @@ def emo_to_dict(emotions,
                 d=dict()):
     for i in range(d['num_faces']):
         face = {}
-        face['emotion'] = RussellclassName[FERclassName[int(emotions[i])]]
-        face['pred_emo'] = FERclassName[int(emotions[i])]
+        if russell is True:
+            face['emotion'] = RussellclassName[FERclassName[int(emotions[i])]]
+            face['pred_emo'] = FERclassName[int(emotions[i])]
+        else:
+            face['emotion'] = FERclassName[int(emotions[i])]
+        
         if confident is not None:
             face['confident'] = round(confident[i] * 100, 4)
         if face_sizes is not None:
@@ -103,7 +107,7 @@ def connect_mqtt():
     return client
 
 
-# client = connect_mqtt()
+client = connect_mqtt()
 
 
 def publish(client, topic, msg):
@@ -187,14 +191,14 @@ with mp_face_mesh.FaceMesh(max_num_faces=max_num_faces,
             emo = stats.mode(results_mat, axis=1)[0].flatten().tolist()
             d = {"name": "facemesh data", 'num_faces': num_faces}
             msg = json.dumps(emo_to_dict(emo, conf, face_sizes, True,
-                                         d))  # with confident and face size
+                                         d))  # with confident face size and mapped emotion
             # msg = json.dumps(emo_to_dict(emotions=emo, d=d)) # without confident and face size
-            print(msg)
+            # print(msg)
             frame_count = 0
             results_mat = np.ones((max_num_faces, n_frames)) * 7
             face_sizes = np.zeros(max_num_faces)
             conf = np.zeros(max_num_faces)
-            # publish(client, topic, msg)
+            publish(client, topic, msg)
         if cv2.waitKey(5) & 0xFF == 27:
             break
 cap.release()

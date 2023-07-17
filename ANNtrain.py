@@ -19,9 +19,9 @@ test_df = result[result['usage'] == 'test'].drop(columns='usage').sample(frac=1,
 
 model = classifier.ANNClassifier(input_size=478*3, output_size=7, dropout=0.5)
 # model = classifier.ANNClassifier(input_size=48*48*3, output_size=7, dropout=0.5)
-model = classifier.getmodel(model, './model/FERplusmeshANNColab.pt')
+# model = classifier.getmodel(model, './model/FERplusmeshANNColab.pt')
 print(model)
-model, test_loss, correct = classifier.trainmodel(model, train_df, val_df, test_df, epochs=100, lr=1e-7, batch_size=1024, plot=True, class_name = data.class_name)
+model, test_loss, correct = classifier.trainmodel(model, train_df, val_df, test_df, epochs=250, lr=1e-5, batch_size=1024, plot=True, class_name = data.class_name)
 
 # best_model = None
 # min_loss = 99999.9
@@ -34,4 +34,4 @@ model, test_loss, correct = classifier.trainmodel(model, train_df, val_df, test_
 #         min_loss = test_loss
 
 # print(f'min loss is {np.array(min_loss).argmin()}')
-classifier.savemodel(model, save_path='./model/FERplusmeshANNBest.pt')
+classifier.savemodel(model, save_path='./model/FERplusmeshANNRotate.pt')
