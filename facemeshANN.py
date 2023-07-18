@@ -130,7 +130,7 @@ def confusematrixtest(dataloader, model, loss_fn, class_name):
     correct /= size
     # print(f'Preds:{np.array(pred_list)}')
     # print(f'y:{np.array(y_list)}')
-    cm = confusion_matrix(np.array(y_list), np.array(pred_list))
+    cm = confusion_matrix(np.array(y_list), np.array(pred_list), normalize='all')
     disp = ConfusionMatrixDisplay(confusion_matrix=cm,
                                   display_labels=class_name)
     disp.plot()

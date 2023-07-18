@@ -8,7 +8,7 @@ result = data.get_df(mode='ANN', sample=True, sample_size=1000)
 # result = data.get_df(mode='ANN')
 # result = data.get_df(mode='IMGANN', sample=True, sample_size=1000)
 # result = data.get_df(mode='IMGANN')
-# result = data.balance_df('down')
+result = data.balance_df('up')
 # data.save_df('./facemesh_df.csv')
 
 print(result.head(10))
