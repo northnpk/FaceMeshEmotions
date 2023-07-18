@@ -81,6 +81,40 @@ class FERdata(object):
             self.df = getlandmark(self.df, mode, drawlandmarks, mapping, cmap, with_img)
             return self.df
 
+def re_pos(mesh):
+    # print(f'shift from: {mesh[1]}')
+    origin = mesh[1] - np.array([0, 0, 0])
+    mesh = mesh - origin
+    return mesh
+
+def unit_vector(vector):
+    """ Returns the unit vector of the vector.  """
+    return vector / np.linalg.norm(vector)
+
+def rot(mesh, u,v,w, x,y,z):
+    r = R.from_matrix([u,v,w])
+    ref_r = R.from_matrix([x,y,z])
+    rotation = ref_r * r
+    # mesh = r.apply(mesh)
+    # mesh = ref_r.apply(mesh)
+    mesh = rotation.apply(mesh)
+    # print(r.as_euler('xyz', degrees=True))
+    return mesh
+
+def get_ref(mesh):
+    p0 = mesh[1]
+    p1 = mesh[5]
+    p2 = mesh[44]
+    p3 = mesh[274]
+    v1 = p2 - p1
+    v2 = p3 - p1
+    v3 = p0 - p1
+    v4 = p0 - mesh[4]
+    w = unit_vector(np.cross(v1, v2))
+    ref = unit_vector(np.cross(v3, v4))
+    v = unit_vector(np.cross(w, ref))
+    u = unit_vector(np.cross(v, w))
+    return u,v,w
 
 def balance_each_usage(df, mode):
     print(f'Balancing dataFrame with {mode}sampling mode')
@@ -146,41 +180,6 @@ def drawalllandmark(annotated_image, result):
 
 def emotionmapping(emotion):
     return FERclassName.index(emotion)
-
-def re_pos(mesh):
-    # print(f'shift from: {mesh[1]}')
-    origin = mesh[1] - np.array([0, 0, 0])
-    mesh = mesh - origin
-    return mesh
-
-def unit_vector(vector):
-    """ Returns the unit vector of the vector.  """
-    return vector / np.linalg.norm(vector)
-
-def rot(mesh, u,v,w, x,y,z):
-    r = R.from_matrix([u,v,w])
-    ref_r = R.from_matrix([x,y,z])
-    rotation = ref_r * r
-    # mesh = r.apply(mesh)
-    # mesh = ref_r.apply(mesh)
-    mesh = rotation.apply(mesh)
-    # print(r.as_euler('xyz', degrees=True))
-    return mesh
-
-def get_ref(mesh):
-    p0 = mesh[1]
-    p1 = mesh[5]
-    p2 = mesh[44]
-    p3 = mesh[274]
-    v1 = p2 - p1
-    v2 = p3 - p1
-    v3 = p0 - p1
-    v4 = p0 - mesh[4]
-    w = unit_vector(np.cross(v1, v2))
-    ref = unit_vector(np.cross(v3, v4))
-    v = unit_vector(np.cross(w, ref))
-    u = unit_vector(np.cross(v, w))
-    return u,v,w
 
 def getlandmark(df, mode, draw, map, cmap, with_img):
     new_df = pd.DataFrame(columns=['usage', 'feature', 'target'])
