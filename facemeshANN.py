@@ -41,16 +41,16 @@ class ANNClassifier(nn.Module):
         super().__init__()
         self.flatten = nn.Flatten()
         self.linear_relu_stack = nn.Sequential(
-            nn.Linear(input_size, 1024),
+            nn.Linear(input_size, 100),
             nn.ReLU(),
             nn.Dropout(dropout),
-            nn.Linear(1024, 512),
+            nn.Linear(100, 100),
             nn.ReLU(),
             nn.Dropout(dropout),
-            nn.Linear(512, 512),
+            nn.Linear(100, 100),
             nn.ReLU(),
             nn.Dropout(dropout),
-            nn.Linear(512, output_size),
+            nn.Linear(100, output_size),
         )
 
         self.device = ("cuda" if torch.cuda.is_available() else
