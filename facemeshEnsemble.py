@@ -62,6 +62,16 @@ class ANNClassifier(nn.Module):
         x = self.linear_relu_stack(x)
         return x
 
+def EnsembleClassifier(input_size, output_size, pos_n_class, neg_n_class, dropout):
+    if pos_n_class + neg_n_class != output_size:
+        print('Error: pos_n_class + neg_n_class != output_size')
+        return None
+    model_dict = {'binaryclassifer': ANNClassifier(input_size, 2, dropout),
+                  'pos_classifer': ANNClassifier(input_size, pos_n_class, dropout),
+                  'neg_classifer': ANNClassifier(input_size, neg_n_class, dropout),
+                  'device': ("cuda" if torch.cuda.is_available() else
+                             "mps" if torch.backends.mps.is_available() else "cpu")}
+    return model_dict
 
 def train_loop(dataloader, model, loss_fn, optimizer):
     size = len(dataloader.dataset)
@@ -138,7 +148,7 @@ def confusematrixtest(dataloader, model, loss_fn, class_name):
     print(classification_report(y_list, pred_list, target_names=class_name))
 
 
-def trainmodel(model,
+def trainmodel(model_dict,
                train_df,
                val_df,
                test_df,
@@ -147,9 +157,12 @@ def trainmodel(model,
                batch_size=8,
                plot=False,
                class_name=None):
-    device = model.device
+    binaryclassifer = model_dict['binaryclassifer']
+    pos_classifer = model_dict['pos_classifer']
+    neg_classifer = model_dict['neg_classifer']
+    device = model_dict['device']
     print(f'devices:{device}')
-
+    
     train_dataset = CustomDataset(dataframe=train_df)
     val_dataset = CustomDataset(dataframe=val_df)
     test_dataset = CustomDataset(dataframe=test_df)
@@ -164,7 +177,7 @@ def trainmodel(model,
     ],
                                  dtype=torch.float).to(device)
     # loss_fn = nn.CrossEntropyLoss(weight=class_weights, reduction='mean')
-    loss_fn = nn.CrossEntropyLoss()
+    bin_loss_fn = nn.
     # optimizer = torch.optim.SGD(model.parameters(), lr=lr, momentum=0.9, weight_decay=1e-4)
     optimizer = torch.optim.Adam(model.parameters(), lr=lr)
     scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(
@@ -221,6 +234,7 @@ def trainmodel(model,
         pbar.update(1)
 
     print("Done!")
+    pbar.close()
 
     if plot:
         plt.subplot(1, 2, 1)

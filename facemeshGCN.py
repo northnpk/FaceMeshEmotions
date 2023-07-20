@@ -63,15 +63,13 @@ class GCNClassifier(nn.Module):
         self.conv2 = GraphConv(64, 64)
         self.conv3 = GraphConv(64, 64)
         self.linear_relu_stack = nn.Sequential(
-            nn.Linear(64, 64),
-            nn.ReLU(),
             nn.Dropout(self.dropout_p),
             nn.Linear(64, 64),
             nn.ReLU(),
-            nn.Dropout(self.dropout_p),
             nn.Linear(64, 64),
             nn.ReLU(),
-            nn.Dropout(self.dropout_p),
+            nn.Linear(64, 64),
+            nn.ReLU(),
             nn.Linear(64, output_size),
         )
 
@@ -202,12 +200,12 @@ def trainmodel(model,
         0.81125541
     ],
                                  dtype=torch.float).to(device)
-    if weights:
+    if weights is True:
         loss_fn = nn.CrossEntropyLoss(weight=class_weights, reduction='mean')
     else:
         loss_fn = nn.CrossEntropyLoss()
     # optimizer = torch.optim.SGD(model.parameters(), lr=lr, momentum=0.9, weight_decay=1e-4)
-    optimizer = torch.optim.Adam(model.parameters(), lr=lr)
+    optimizer = torch.optim.Adam(model.parameters(), lr=lr, weight_decay=1e-4)
     # scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(
     #     optimizer,
     #     mode='min',
