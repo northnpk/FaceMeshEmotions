@@ -1,3 +1,8 @@
 opencv-contrib-python==4.7.0.72
 torch
 pyproject-toml
+tqdm
+scikit-learn
+matplotlib
+numpy
+scipy

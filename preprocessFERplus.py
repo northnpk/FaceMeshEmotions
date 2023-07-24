@@ -22,7 +22,7 @@ RussellclassName = {
     'Fear': 'Anger',
     'Disgust': 'Anger',
     'Sad': 'Sadness',
-    'Neutral': 'Neutral',
+    'Neutral': 'Relax',
     'None': 'None'
 }
 
@@ -53,6 +53,8 @@ class FERdata(object):
                mode='ANN',
                with_img = False,
                drawlandmarks=False,
+               rotate=True,
+               repos=True,
                mapping=False,
                cmap='GRAY',
                sample=False,
@@ -73,12 +75,12 @@ class FERdata(object):
             ])
             print('Prepare data to img')
             self.df['img'] = self.df.progress_apply(to_img, axis=1)
-            self.df = getlandmark(self.df, mode, drawlandmarks, mapping, cmap, with_img)
+            self.df = getlandmark(self.df, mode, drawlandmarks, mapping, cmap, with_img, rotate, repos)
             return self.df
         else:
             print('Prepare data to img')
             self.df['img'] = self.df.progress_apply(to_img, axis=1)
-            self.df = getlandmark(self.df, mode, drawlandmarks, mapping, cmap, with_img)
+            self.df = getlandmark(self.df, mode, drawlandmarks, mapping, cmap, with_img, rotate, repos)
             return self.df
 
 def re_pos(mesh):
@@ -181,7 +183,7 @@ def drawalllandmark(annotated_image, result):
 def emotionmapping(emotion):
     return FERclassName.index(emotion)
 
-def getlandmark(df, mode, draw, map, cmap, with_img):
+def getlandmark(df, mode, draw, map, cmap, with_img, rotate, repos):
     new_df = pd.DataFrame(columns=['usage', 'feature', 'target'])
     draw_img, real_img = [], []
     usage_map = {
@@ -215,13 +217,16 @@ def getlandmark(df, mode, draw, map, cmap, with_img):
                     continue
 
                 np_landmark = prepareforANN(
-                    result.multi_face_landmarks[0].landmark)
+                    result.multi_face_landmarks[0].landmark,rotation=rotate,reposition=repos)
 
                 if draw == True:
                     annotated_image = cv2.cvtColor(data[1],
                                                    cv2.COLOR_GRAY2RGB).copy()
                     annotated_image = drawalllandmark(annotated_image, result)
                     draw_img.append(annotated_image)
+                
+                if with_img == True:
+                    real_img.append(img)
 
                 new_df = pd.concat([
                     new_df,
@@ -236,7 +241,7 @@ def getlandmark(df, mode, draw, map, cmap, with_img):
                     continue
 
                 np_landmark = prepareforANN(
-                    result.multi_face_landmarks[0].landmark)
+                    result.multi_face_landmarks[0].landmark, rotation=rotate, reposition=repos)
                 edge_index = list(mp_face_mesh.FACEMESH_TESSELATION)
                 
                 if draw == True:
@@ -245,7 +250,7 @@ def getlandmark(df, mode, draw, map, cmap, with_img):
                     annotated_image = drawalllandmark(annotated_image, result)
                     draw_img.append(annotated_image)
                 if with_img == True:
-                    real_img.append(data[1])
+                    real_img.append(img)
                 
                 new_df = pd.concat([
                     new_df,
