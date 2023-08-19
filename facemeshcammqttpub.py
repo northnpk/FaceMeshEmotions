@@ -18,8 +18,8 @@ mp_face_mesh = mp.solutions.face_mesh
 converter = preprocess.prepareforANN
 model = classifier.ANNClassifier(input_size=478 * 3,
                                  output_size=7,
-                                 dropout=0.5)
-model = classifier.getmodel(model, './model/FERplusmeshANNColab.pt')
+                                 dropout=0.1)
+model = classifier.getmodel(model, './model/FERplusmeshANNColabRotate50.pt')
 
 broker = '192.168.64.132'
 port = 1883
@@ -125,7 +125,7 @@ drawing_spec = mp_drawing.DrawingSpec(thickness=1, circle_radius=1)
 cap = cv2.VideoCapture(0)
 frame_count = 0
 num_faces = 0
-max_num_faces = 4
+max_num_faces = 2
 n_frames = 10
 results_mat = np.ones((max_num_faces, n_frames)) * 7
 face_sizes = np.zeros(max_num_faces)
@@ -147,7 +147,7 @@ with mp_face_mesh.FaceMesh(max_num_faces=max_num_faces,
             continue
         # To improve performance, optionally mark the image as not writeable to
         # pass by reference.
-        # new_frame_time = time.time()
+        new_frame_time = time.time()
         image.flags.writeable = False
         image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
         results = face_mesh.process(image)
@@ -183,9 +183,10 @@ with mp_face_mesh.FaceMesh(max_num_faces=max_num_faces,
         # Flip the image horizontally for a selfie-view display.
         # cv2.imshow('MediaPipe Face Mesh', cv2.flip(image, 1))
         cv2.imshow('MediaPipe Face Mesh', image)
-        # fps = 1/(new_frame_time-prev_frame_time)
-        # prev_frame_time = new_frame_time
-        # print(f'fps: {fps}')
+        times_delay = new_frame_time-prev_frame_time
+        fps = 1/(times_delay)
+        prev_frame_time = new_frame_time
+        print(f'fps: {fps}, time: {times_delay}')
         frame_count += 1
         if frame_count == n_frames:
             emo = stats.mode(results_mat, axis=1)[0].flatten().tolist()

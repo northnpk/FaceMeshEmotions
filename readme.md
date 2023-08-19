@@ -22,3 +22,8 @@ print(torch.__version__)
 !pip install -q git+https://github.com/pyg-team/pyg-lib.git
 !pip install -q git+https://github.com/pyg-team/pytorch_geometric.git
 ```
+## To mqtt communicate with ROS2 Turtlebot
+```
+sudo apt-get install mosquitto
+sudo apt-get install mosquitto-clients
+```
