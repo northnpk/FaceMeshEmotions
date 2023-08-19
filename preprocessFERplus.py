@@ -211,7 +211,7 @@ def getlandmark(df, mode, draw, map, cmap, with_img, rotate, repos):
             else:
                 emotion = data[2]
 
-            if mode == 'ANN':
+            if mode == 'ANN' or mode == 'GNN':
                 result = face_mesh.process(img)
                 if not result.multi_face_landmarks:
                     continue
@@ -227,39 +227,16 @@ def getlandmark(df, mode, draw, map, cmap, with_img, rotate, repos):
                 
                 if with_img == True:
                     real_img.append(img)
-
+                    
                 new_df = pd.concat([
                     new_df,
                     pd.DataFrame([[usage_map[data[0]], np_landmark, emotion]],
                                  columns=['usage', 'feature', 'target'])
                 ],
                                    ignore_index=True)
-
-            elif mode == 'GNN':
-                result = face_mesh.process(img)
-                if not result.multi_face_landmarks:
-                    continue
-
-                np_landmark = prepareforANN(
-                    result.multi_face_landmarks[0].landmark, rotation=rotate, reposition=repos)
-                edge_index = list(mp_face_mesh.FACEMESH_TESSELATION)
-                
-                if draw == True:
-                    annotated_image = cv2.cvtColor(data[1],
-                                                   cv2.COLOR_GRAY2RGB).copy()
-                    annotated_image = drawalllandmark(annotated_image, result)
-                    draw_img.append(annotated_image)
-                if with_img == True:
-                    real_img.append(img)
-                
-                new_df = pd.concat([
-                    new_df,
-                    pd.DataFrame([[usage_map[data[0]], np_landmark, emotion]],
-                                 columns=['usage', 'feature', 'target'])
-                ],
-                                   ignore_index=True)
-                
-                new_df['edge_index'] = [edge_index for _ in range(len(new_df))]
+                if mode == 'GNN':
+                    edge_index = list(mp_face_mesh.FACEMESH_TESSELATION)
+                    new_df['edge_index'] = [edge_index for _ in range(len(new_df))]
 
             elif mode == 'IMG':
                 new_df = pd.concat([

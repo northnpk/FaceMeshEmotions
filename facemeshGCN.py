@@ -54,7 +54,6 @@ class GCNClassifier(nn.Module):
         super().__init__()
         self.dropout_p = dropout
         self.GCNstack = geo_nn.Sequential('x, edge_index, batch', [
-            (nn.Dropout(self.dropout_p), 'x -> x'),
             (geo_nn.GCNConv(input_size, 64), 'x, edge_index -> x1'),
             nn.ReLU(inplace=True),
             (geo_nn.GCNConv(64, 64), 'x1, edge_index -> x2'),
@@ -62,6 +61,7 @@ class GCNClassifier(nn.Module):
             (lambda x1, x2: [x1, x2], 'x1, x2 -> xs'),
             (geo_nn.JumpingKnowledge("cat", 64, num_layers=2), 'xs -> x'),
             (geo_nn.global_mean_pool, 'x, batch -> x'),
+            (nn.Dropout(self.dropout_p), 'x -> x'),
             nn.Linear(2 * 64, output_size),
         ])
         if device == 'auto':
