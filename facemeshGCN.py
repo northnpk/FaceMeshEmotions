@@ -54,16 +54,23 @@ class GCNClassifier(nn.Module):
         super().__init__()
         self.dropout_p = dropout
         self.GCNstack = geo_nn.Sequential('x, edge_index, batch', [
-            (geo_nn.GCNConv(input_size, 64), 'x, edge_index -> x1'),
-            nn.ReLU(inplace=True),
-            (geo_nn.GCNConv(64, 64), 'x1, edge_index -> x2'),
-            nn.ReLU(inplace=True),
-            (lambda x1, x2: [x1, x2], 'x1, x2 -> xs'),
-            (geo_nn.JumpingKnowledge("cat", 64, num_layers=2), 'xs -> x'),
+            (geo_nn.GCNConv(input_size, 128), 'x, edge_index -> x1'),
+            nn.LeakyReLU(inplace=True),
+            (geo_nn.GCNConv(128, 128), 'x1, edge_index -> x2'),
+            nn.LeakyReLU(inplace=True),
+            (geo_nn.GCNConv(128, 128), 'x2, edge_index -> x3'),
+            nn.LeakyReLU(inplace=True),
+            (geo_nn.GCNConv(128, 128), 'x3, edge_index -> x4'),
+            nn.LeakyReLU(inplace=True),
+            (lambda x1, x2, x3, x4: [x1, x2, x3, x4], 'x1, x2, x3, x4 -> xs'),
+            (geo_nn.JumpingKnowledge("cat", 128, num_layers=4), 'xs -> x'),
             (geo_nn.global_mean_pool, 'x, batch -> x'),
             (nn.Dropout(self.dropout_p), 'x -> x'),
-            nn.Linear(2 * 64, output_size),
         ])
+        
+        self.fc = nn.Sequential(
+            nn.Linear(512, output_size),
+        )
         if device == 'auto':
             self.device = ("cuda" if torch.cuda.is_available() else "mps"
                            if torch.backends.mps.is_available() else "cpu")
@@ -74,6 +81,8 @@ class GCNClassifier(nn.Module):
 
     def forward(self, x, edge_index, batch):
         x = self.GCNstack(x, edge_index, batch)
+        # print(f'x after GCN:{x.size()}')
+        x = self.fc(x)
         return x
 
 
