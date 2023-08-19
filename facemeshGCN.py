@@ -1,15 +1,13 @@
 import torch
 from torch import nn
-import torch.nn.functional as F
-from torch_geometric.nn import GraphConv, global_mean_pool
+from torch_geometric import nn as geo_nn
 from torch.utils.data import Dataset
 from torch_geometric.data import Data
 from torch_geometric.loader import DataLoader
 from tqdm import tqdm
 import numpy as np
-from matplotlib import pyplot as plt
 from sklearn.utils import class_weight
-from sklearn.metrics import confusion_matrix, ConfusionMatrixDisplay, classification_report
+from evalplot import conf_plot, print_eval
 
 
 class CustomDataset(Dataset):
@@ -52,29 +50,20 @@ class CustomDataset(Dataset):
 
 class GCNClassifier(nn.Module):
 
-    def __init__(self,
-                 input_size,
-                 output_size,
-                 dropout=0.2,
-                 device='auto'):
+    def __init__(self, input_size, output_size, dropout=0.2, device='auto'):
         super().__init__()
         self.dropout_p = dropout
-        self.conv1 = GraphConv(input_size, 64)
-        self.conv2 = GraphConv(64, 64)
-        self.conv3 = GraphConv(64, 64)
-        self.linear_relu_stack = nn.Sequential(
-            nn.Linear(64, 64),
-            nn.ReLU(),
-            nn.Dropout(self.dropout_p),
-            nn.Linear(64, 64),
-            nn.ReLU(),
-            nn.Dropout(self.dropout_p),
-            nn.Linear(64, 64),
-            nn.ReLU(),
-            nn.Dropout(self.dropout_p),
-            nn.Linear(64, output_size),
-        )
-
+        self.GCNstack = geo_nn.Sequential('x, edge_index, batch', [
+            (nn.Dropout(self.dropout_p), 'x -> x'),
+            (geo_nn.GCNConv(input_size, 64), 'x, edge_index -> x1'),
+            nn.ReLU(inplace=True),
+            (geo_nn.GCNConv(64, 64), 'x1, edge_index -> x2'),
+            nn.ReLU(inplace=True),
+            (lambda x1, x2: [x1, x2], 'x1, x2 -> xs'),
+            (geo_nn.JumpingKnowledge("cat", 64, num_layers=2), 'xs -> x'),
+            (geo_nn.global_mean_pool, 'x, batch -> x'),
+            nn.Linear(2 * 64, output_size),
+        ])
         if device == 'auto':
             self.device = ("cuda" if torch.cuda.is_available() else "mps"
                            if torch.backends.mps.is_available() else "cpu")
@@ -84,16 +73,9 @@ class GCNClassifier(nn.Module):
         print(f"Using {self.device} device")
 
     def forward(self, x, edge_index, batch):
-        x = self.conv1(x, edge_index)
-        x = F.relu(x)
-        x = self.conv2(x, edge_index)
-        x = F.relu(x)
-        x = F.dropout(x, p=self.dropout_p, training=self.training)
-        x = self.conv3(x, edge_index)
-        x = F.relu(x)
-        x = global_mean_pool(x, batch)
-        x = self.linear_relu_stack(x)
+        x = self.GCNstack(x, edge_index, batch)
         return x
+
 
 def train_loop(dataloader, model, loss_fn, optimizer):
     size = 0
@@ -167,12 +149,7 @@ def confusematrixtest(dataloader, model, loss_fn, class_name):
     correct /= size
     # print(f'Preds:{np.array(pred_list)}')
     # print(f'y:{np.array(y_list)}')
-    cm = confusion_matrix(np.array(y_list), np.array(pred_list), normalize='all')
-    disp = ConfusionMatrixDisplay(confusion_matrix=cm,
-                                  display_labels=class_name)
-    disp.plot()
-    plt.show()
-    print(classification_report(y_list, pred_list, target_names=class_name))
+    conf_plot(y_list, pred_list, class_name)
 
 
 def trainmodel(model,
@@ -266,18 +243,9 @@ def trainmodel(model,
     print("Done!")
 
     if plot:
-        plt.subplot(1, 2, 1)
-        plt.plot(range(epochs), train_loss_backup, label="train_loss")
-        plt.plot(range(epochs), val_loss_backup, label="val_loss")
-        plt.plot(range(epochs), test_loss_backup, label="test_loss")
-
-        plt.legend()
-        plt.subplot(1, 2, 2)
-        plt.plot(range(epochs), train_acc_backup, label="train_acc")
-        plt.plot(range(epochs), val_acc_backup, label="val_acc")
-        plt.plot(range(epochs), test_acc_backup, label="test_acc")
-        plt.legend()
-        plt.show()
+        print_eval(epochs, (train_loss_backup, train_acc_backup),
+                   (test_loss_backup, test_acc_backup),
+                   (val_loss_backup, val_acc_backup))
         confusematrixtest(test_loader, model, loss_fn, class_name)
 
     model.eval()
@@ -313,6 +281,8 @@ def getmodel(model, path_to_model, device='auto'):
 
 
 def predict(model, X, edge_index, batch=1):
-    return model(torch.from_numpy(np.array(X)).to(torch.float32).to(model.device),
-                 torch.from_numpy(np.array(edge_index)).t().contiguous().to(torch.long).to(model.device),
-                 batch.to(torch.long).to(model.device))
+    return model(
+        torch.from_numpy(np.array(X)).to(torch.float32).to(model.device),
+        torch.from_numpy(np.array(edge_index)).t().contiguous().to(
+            torch.long).to(model.device),
+        batch.to(torch.long).to(model.device))

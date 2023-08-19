@@ -7,8 +7,8 @@ mp_face_mesh = mp.solutions.face_mesh
 import facemeshANN as classifier
 import preprocessFERplus as preprocess
 converter = preprocess.prepareforANN
-model = classifier.ANNClassifier(input_size=478*3, output_size=7, dropout=0.5)
-model = classifier.getmodel(model, './model/FERplusmeshANNColab.pt')
+model = classifier.ANNClassifier(input_size=478*3, output_size=7, dropout=0.1)
+model = classifier.getmodel(model, './model/FERplusmeshANNColabRotate50.pt')
 FERclassName = [
     'Angry', 'Disgust', 'Fear', 'Happy', 'Sad', 'Surprise', 'Neutral'
 ]

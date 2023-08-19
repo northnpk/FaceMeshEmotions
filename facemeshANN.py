@@ -3,9 +3,8 @@ from torch import nn
 from torch.utils.data import DataLoader, Dataset
 from tqdm import tqdm
 import numpy as np
-from matplotlib import pyplot as plt
 from sklearn.utils import class_weight
-from sklearn.metrics import confusion_matrix, ConfusionMatrixDisplay, classification_report
+from evalplot import conf_plot, print_eval
 
 
 class CustomDataset(Dataset):
@@ -130,12 +129,7 @@ def confusematrixtest(dataloader, model, loss_fn, class_name):
     correct /= size
     # print(f'Preds:{np.array(pred_list)}')
     # print(f'y:{np.array(y_list)}')
-    cm = confusion_matrix(np.array(y_list), np.array(pred_list), normalize='all')
-    disp = ConfusionMatrixDisplay(confusion_matrix=cm,
-                                  display_labels=class_name)
-    disp.plot()
-    plt.show()
-    print(classification_report(y_list, pred_list, target_names=class_name))
+    conf_plot(y_list, pred_list, class_name)
 
 
 def trainmodel(model,
@@ -223,18 +217,9 @@ def trainmodel(model,
     print("Done!")
 
     if plot:
-        plt.subplot(1, 2, 1)
-        plt.plot(range(epochs), train_loss_backup, label="train_loss")
-        plt.plot(range(epochs), val_loss_backup, label="val_loss")
-        plt.plot(range(epochs), test_loss_backup, label="test_loss")
-
-        plt.legend()
-        plt.subplot(1, 2, 2)
-        plt.plot(range(epochs), train_acc_backup, label="train_acc")
-        plt.plot(range(epochs), val_acc_backup, label="val_acc")
-        plt.plot(range(epochs), test_acc_backup, label="test_acc")
-        plt.legend()
-        plt.show()
+        print_eval(epochs, (train_loss_backup, train_acc_backup),
+                   (test_loss_backup, test_acc_backup),
+                   (val_loss_backup, val_acc_backup))
         confusematrixtest(test_loader, model, loss_fn, class_name)
 
     model.eval()
