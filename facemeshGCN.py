@@ -212,7 +212,7 @@ def trainmodel(model,
     pbar = tqdm(total=epochs)
 
     model.to(device)
-
+    
     for i in range(epochs):
         pbar.set_description(
             f'Epoch{i+1}|tr_loss:{train_loss:.4f}|tr_acc:{train_acc:.4f}|va_loss:{val_loss:.4f}|va_acc:{val_acc:.4f}|te_loss:{test_loss:.4f}|te_acc:{test_acc:.4f}'
