@@ -1,6 +1,8 @@
 import torch
 from torch import nn
 from torch.utils.data import DataLoader, Dataset
+import torchvision
+from torchvision.models import vit_b_16
 from tqdm import tqdm
 import numpy as np
 from sklearn.utils import class_weight
@@ -34,31 +36,23 @@ class CustomDataset(Dataset):
         return self.len
 
 
-class ANNClassifier(nn.Module):
+class ViTClassifier(nn.Module):
 
     def __init__(self, input_size, output_size, dropout):
         super().__init__()
-        self.flatten = nn.Flatten()
-        self.linear_relu_stack = nn.Sequential(
-            nn.Linear(input_size, 1024),
-            nn.ReLU(),
-            nn.Dropout(dropout),
-            nn.Linear(1024, 512),
-            nn.ReLU(),
-            nn.Dropout(dropout),
-            nn.Linear(512, 512),
-            nn.ReLU(),
-            nn.Dropout(dropout),
-            nn.Linear(512, output_size),
-        )
-
+        self.ViT = vit_b_16(num_classes=output_size, dropout=dropout)
+        self.transform = nn.Sequential(torchvision.transforms.Resize((224,224)))
         self.device = ("cuda" if torch.cuda.is_available() else
                        "mps" if torch.backends.mps.is_available() else "cpu")
         print(f"Using {self.device} device")
 
     def forward(self, x):
-        x = self.flatten(x)
-        x = self.linear_relu_stack(x)
+        # shape = (batch_size, 48, 48, 3)
+        x = torch.permute(x, (0, 3, 1, 2))
+        # shape = (batch_size, 3, 48, 48)
+        x = self.transform(x)
+        # shape = (batch_size, 3, 224, 224)
+        x = self.ViT(x)
         return x
 
 
