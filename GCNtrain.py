@@ -1,5 +1,5 @@
-import preprocessFERplus as preprocess
-import facemeshGCN as classifier
+import utils.preprocessFERplus as preprocess
+import utils.facemeshGCN as classifier
 
 data = preprocess.FERdata('challenges-in-representation-learning-facial-expression-recognition-challenge/icml_face_data.csv')
 

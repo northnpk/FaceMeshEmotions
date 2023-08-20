@@ -1,5 +1,5 @@
-import preprocessFERplus as preprocess
-import facemeshANN as classifier
+import utils.preprocessFERplus as preprocess
+import utils.facemeshANN as classifier
 import numpy as np
 
 data = preprocess.FERdata('challenges-in-representation-learning-facial-expression-recognition-challenge/icml_face_data.csv')
@@ -21,7 +21,7 @@ model = classifier.ANNClassifier(input_size=478*3, output_size=7, dropout=0.1)
 # model = classifier.ANNClassifier(input_size=48*48*3, output_size=7, dropout=0.5)
 # model = classifier.getmodel(model, './model/FERplusmeshANNColab.pt')
 print(model)
-model, test_loss, correct = classifier.trainmodel(model, train_df, val_df, test_df, epochs=10, lr=3e-4, batch_size=32, plot=True, class_name = data.class_name)
+model, test_loss, correct = classifier.trainmodel(model, train_df, val_df, test_df, epochs=10, lr=3e-4, batch_size=32, plot=True, class_name = data.class_name[:-1])
 
 # best_model = None
 # min_loss = 99999.9

@@ -4,8 +4,8 @@ import numpy as np
 from scipy import stats
 import time
 
-import facemeshANN as classifier
-import preprocessFERplus as preprocess
+import utils.facemeshANN as classifier
+import utils.preprocessFERplus as preprocess
 
 from paho.mqtt import client as mqtt_client
 

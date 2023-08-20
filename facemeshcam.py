@@ -4,8 +4,8 @@ import numpy as np
 mp_drawing = mp.solutions.drawing_utils
 mp_drawing_styles = mp.solutions.drawing_styles
 mp_face_mesh = mp.solutions.face_mesh
-import facemeshANN as classifier
-import preprocessFERplus as preprocess
+import utils.facemeshANN as classifier
+import utils.preprocessFERplus as preprocess
 converter = preprocess.prepareforANN
 model = classifier.ANNClassifier(input_size=478*3, output_size=7, dropout=0.1)
 model = classifier.getmodel(model, './model/FERplusmeshANNColabRotate50.pt')
