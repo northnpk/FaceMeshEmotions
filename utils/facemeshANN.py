@@ -5,6 +5,7 @@ from tqdm import tqdm
 import numpy as np
 from sklearn.utils import class_weight
 from utils.evalplot import conf_plot, print_eval
+from torchinfo import summary
 
 
 class CustomDataset(Dataset):
@@ -191,6 +192,8 @@ def trainmodel(model,
     test_acc_backup = []
 
     pbar = tqdm(total=epochs)
+    model.eval()
+    print(summary(model, input_data=torch.rand(batch_size, 478, 3).to(device)))
         
     for i in range(epochs):
         pbar.set_description(

@@ -44,8 +44,8 @@ class FERdata(object):
     def balance_df(self, mode):
         return pd.concat([
             balance_each_usage(self.df[self.df['usage'] == 'train'], mode),
-            balance_each_usage(self.df[self.df['usage'] == 'val'], mode),
-            balance_each_usage(self.df[self.df['usage'] == 'test'], mode)
+            self.df[self.df['usage'] == 'val'],
+            self.df[self.df['usage'] == 'test']
         ],
                          ignore_index=True)
 

@@ -50,21 +50,32 @@ class CustomDataset(Dataset):
 
 class GCNClassifier(nn.Module):
 
-    def __init__(self, input_size, output_size, dropout=0.2, device='auto'):
+    def __init__(self,
+                 input_size,
+                 hidden_size,
+                 output_size,
+                 dropout=0.2,
+                 device='auto'):
         super().__init__()
         self.dropout_p = dropout
         self.GCNstack = geo_nn.Sequential('x, edge_index, batch', [
             (nn.Dropout(self.dropout_p), 'x -> x'),
-            (geo_nn.GCNConv(input_size, 8), 'x, edge_index -> x1'),
-            nn.LeakyReLU(inplace=True),
-            (nn.Dropout(self.dropout_p), 'x1 -> x1'),
-            
-            
+            (geo_nn.GCNConv(input_size, hidden_size), 'x, edge_index -> x'),
+            nn.ReLU(),
+            nn.Dropout(self.dropout_p),
+            (geo_nn.GCNConv(hidden_size,
+                            2 * hidden_size), 'x, edge_index -> x'),
+            nn.ReLU(),
+            nn.Dropout(self.dropout_p),
+            (geo_nn.GCNConv(2 * hidden_size,
+                            hidden_size), 'x, edge_index -> x'),
+            nn.ReLU(),
+            nn.Dropout(self.dropout_p),
+            (geo_nn.GCNConv(hidden_size, hidden_size), 'x, edge_index -> x'),
+            nn.ReLU(),
+            (geo_nn.global_mean_pool, 'x, batch -> x'),
         ])
-        
-        self.fc = nn.Sequential(
-            nn.Linear(1024, output_size),
-        )
+        self.fc = nn.Sequential(nn.Dropout(self.dropout_p), nn.Linear(hidden_size, output_size), )
         if device == 'auto':
             self.device = ("cuda" if torch.cuda.is_available() else "mps"
                            if torch.backends.mps.is_available() else "cpu")
@@ -75,7 +86,6 @@ class GCNClassifier(nn.Module):
 
     def forward(self, x, edge_index, batch):
         x = self.GCNstack(x, edge_index, batch)
-        print(f'after GCN x:{x.size()}, edge_index:{edge_index.size()}, batch:{batch.size()}')
         x = self.fc(x)
         return x
 
@@ -89,18 +99,17 @@ def train_loop(dataloader, model, loss_fn, optimizer):
     for data in dataloader:
         # zero the parameter gradients
         optimizer.zero_grad()
-        
+
         # Compute prediction and loss
         pred = model(data.x, data.edge_index, data.batch)
         loss = loss_fn(pred, data.y)
         correct += (pred.argmax(1) == data.y).type(torch.float).sum().item()
         size += len(data.y)
         training_loss += loss.item()
-        
+
         # Backpropagation
         loss.backward()
         optimizer.step()
-        
 
     return model, training_loss / len(dataloader), correct / size
 
@@ -172,7 +181,7 @@ def trainmodel(model,
                scheduler=None):
     device = model.device
     print(f'devices:{device}')
-    
+
     model.to(device)
 
     train_dataset = CustomDataset(dataframe=train_df, device=device)
@@ -193,7 +202,8 @@ def trainmodel(model,
     else:
         loss_fn = nn.CrossEntropyLoss()
     # optimizer = torch.optim.SGD(model.parameters(), lr=lr, momentum=0.9, weight_decay=1e-4)
-    optimizer = torch.optim.Adam(model.parameters(), lr=lr, weight_decay=1e-4)
+    optimizer = torch.optim.Adam(model.parameters(), lr=lr)
+    # optimizer = torch.optim.Adam(model.parameters(), lr=lr, weight_decay=1e-4)
     # scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(
     #     optimizer,
     #     mode='min',
@@ -219,9 +229,13 @@ def trainmodel(model,
     test_acc_backup = []
 
     pbar = tqdm(total=epochs)
-    
-    # print(geo_nn.summary(model, torch.rand(478, 3).to(device), train_dataset.edge_index.to(device), torch.ones(478, dtype=torch.int64).to(device)))
-    
+    model.eval()
+    print(
+        geo_nn.summary(model,
+                       torch.rand(478, 3).to(device),
+                       train_dataset.edge_index.to(device),
+                       torch.ones(478, dtype=torch.int64).to(device)))
+
     for i in range(epochs):
         pbar.set_description(
             f'Epoch{i+1}|tr_loss:{train_loss:.4f}|tr_acc:{train_acc:.4f}|va_loss:{val_loss:.4f}|va_acc:{val_acc:.4f}|te_loss:{test_loss:.4f}|te_acc:{test_acc:.4f}'

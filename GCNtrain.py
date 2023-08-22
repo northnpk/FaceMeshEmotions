@@ -14,8 +14,8 @@ train_df = result[result['usage'] == 'train'].drop(columns='usage').sample(frac=
 val_df = result[result['usage'] == 'val'].drop(columns='usage').sample(frac=1, ignore_index=True)
 test_df = result[result['usage'] == 'test'].drop(columns='usage').sample(frac=1, ignore_index=True)
 
-model = classifier.GCNClassifier(input_size=3, output_size=7, dropout=0.1, device='cpu')
+model = classifier.GCNClassifier(input_size=3, hidden_size=512, output_size=7, dropout=0.6, device='cpu')
 print(model)
-model, test_loss, correct = classifier.trainmodel(model, train_df, val_df, test_df, epochs=100, lr=3e-4, batch_size=32, plot=True, class_name = data.class_name[:-1])
+model, test_loss, correct = classifier.trainmodel(model, train_df, val_df, test_df, epochs=100, lr=4e-4, batch_size=32, plot=True, class_name = data.class_name[:-1])
 
 # classifier.savemodel(model, save_path='./model/FERplusmeshGCN.pt')

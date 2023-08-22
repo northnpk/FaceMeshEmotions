@@ -34,4 +34,4 @@ model, test_loss, correct = classifier.trainmodel(model, train_df, val_df, test_
 #         min_loss = test_loss
 
 # print(f'min loss is {np.array(min_loss).argmin()}')
-classifier.savemodel(model, save_path='./model/FERplusmeshANNRotate.pt')
+# classifier.savemodel(model, save_path='./model/FERplusmeshANNRotate.pt')
