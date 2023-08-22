@@ -75,7 +75,10 @@ class GCNClassifier(nn.Module):
             nn.ReLU(),
             (geo_nn.global_mean_pool, 'x, batch -> x'),
         ])
-        self.fc = nn.Sequential(nn.Dropout(self.dropout_p), nn.Linear(hidden_size, output_size), )
+        self.fc = nn.Sequential(
+            nn.Dropout(self.dropout_p),
+            nn.Linear(hidden_size, output_size),
+        )
         if device == 'auto':
             self.device = ("cuda" if torch.cuda.is_available() else "mps"
                            if torch.backends.mps.is_available() else "cpu")
@@ -228,13 +231,11 @@ def trainmodel(model,
     test_loss_backup = []
     test_acc_backup = []
 
+    print(geo_nn.summary(model,torch.rand(478, 3).to(device),
+                         train_dataset.edge_index.to(device),
+                         torch.ones(478, dtype=torch.int64).to(device)))
     pbar = tqdm(total=epochs)
     model.eval()
-    print(
-        geo_nn.summary(model,
-                       torch.rand(478, 3).to(device),
-                       train_dataset.edge_index.to(device),
-                       torch.ones(478, dtype=torch.int64).to(device)))
 
     for i in range(epochs):
         pbar.set_description(

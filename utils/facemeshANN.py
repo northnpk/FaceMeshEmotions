@@ -191,9 +191,9 @@ def trainmodel(model,
     test_loss_backup = []
     test_acc_backup = []
 
+    print(summary(model, input_data=torch.rand(batch_size, 478, 3).to(device)))
     pbar = tqdm(total=epochs)
     model.eval()
-    print(summary(model, input_data=torch.rand(batch_size, 478, 3).to(device)))
         
     for i in range(epochs):
         pbar.set_description(
