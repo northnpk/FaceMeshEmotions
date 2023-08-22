@@ -69,15 +69,18 @@ def train_loop(dataloader, model, loss_fn, optimizer):
     # Unnecessary in this situation but added for best practices
     model.train()
     for batch, (X, y) in enumerate(dataloader):
+        # zero the parameter gradients
+        optimizer.zero_grad()
+        
         # Compute prediction and loss
         pred = model(X)
         loss = loss_fn(pred, y)
         correct += (pred.argmax(1) == y).type(torch.float).sum().item()
+        training_loss += loss.item()
+        
         # Backpropagation
-        optimizer.zero_grad()
         loss.backward()
         optimizer.step()
-        training_loss += loss.item()
 
     return model, training_loss / len(dataloader), correct / size
 
@@ -143,6 +146,8 @@ def trainmodel(model,
                class_name=None):
     device = model.device
     print(f'devices:{device}')
+    
+    model.to(device)
 
     train_dataset = CustomDataset(dataframe=train_df)
     val_dataset = CustomDataset(dataframe=val_df)
@@ -186,9 +191,7 @@ def trainmodel(model,
     test_acc_backup = []
 
     pbar = tqdm(total=epochs)
-
-    model.to(device)
-
+        
     for i in range(epochs):
         pbar.set_description(
             f'Epoch{i+1}|tr_loss:{train_loss:.4f}|tr_acc:{train_acc:.4f}|va_loss:{val_loss:.4f}|va_acc:{val_acc:.4f}|te_loss:{test_loss:.4f}|te_acc:{test_acc:.4f}'

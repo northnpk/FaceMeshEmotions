@@ -25,13 +25,13 @@ class CustomDataset(Dataset):
         X = torch.from_numpy(np.array([np.array(f)
                                        for f in feature])).to(torch.float32)
 
-        edge_index = torch.from_numpy(
+        self.edge_index = torch.from_numpy(
             np.array(edge_index)).t().contiguous().to(torch.long)
 
         y = torch.from_numpy(target).to(torch.long)
 
         self.data = [
-            Data(x=X[i], edge_index=edge_index, y=y[i]).to(self.device)
+            Data(x=X[i], edge_index=self.edge_index, y=y[i]).to(self.device)
             for i in range(self.len)
         ]
 
@@ -54,22 +54,16 @@ class GCNClassifier(nn.Module):
         super().__init__()
         self.dropout_p = dropout
         self.GCNstack = geo_nn.Sequential('x, edge_index, batch', [
-            (geo_nn.GCNConv(input_size, 128), 'x, edge_index -> x1'),
-            nn.LeakyReLU(inplace=True),
-            (geo_nn.GCNConv(128, 128), 'x1, edge_index -> x2'),
-            nn.LeakyReLU(inplace=True),
-            (geo_nn.GCNConv(128, 128), 'x2, edge_index -> x3'),
-            nn.LeakyReLU(inplace=True),
-            (geo_nn.GCNConv(128, 128), 'x3, edge_index -> x4'),
-            nn.LeakyReLU(inplace=True),
-            (lambda x1, x2, x3, x4: [x1, x2, x3, x4], 'x1, x2, x3, x4 -> xs'),
-            (geo_nn.JumpingKnowledge("cat", 128, num_layers=4), 'xs -> x'),
-            (geo_nn.global_mean_pool, 'x, batch -> x'),
             (nn.Dropout(self.dropout_p), 'x -> x'),
+            (geo_nn.GCNConv(input_size, 8), 'x, edge_index -> x1'),
+            nn.LeakyReLU(inplace=True),
+            (nn.Dropout(self.dropout_p), 'x1 -> x1'),
+            
+            
         ])
         
         self.fc = nn.Sequential(
-            nn.Linear(512, output_size),
+            nn.Linear(1024, output_size),
         )
         if device == 'auto':
             self.device = ("cuda" if torch.cuda.is_available() else "mps"
@@ -81,7 +75,7 @@ class GCNClassifier(nn.Module):
 
     def forward(self, x, edge_index, batch):
         x = self.GCNstack(x, edge_index, batch)
-        # print(f'x after GCN:{x.size()}')
+        print(f'after GCN x:{x.size()}, edge_index:{edge_index.size()}, batch:{batch.size()}')
         x = self.fc(x)
         return x
 
@@ -93,16 +87,20 @@ def train_loop(dataloader, model, loss_fn, optimizer):
     # Unnecessary in this situation but added for best practices
     model.train()
     for data in dataloader:
+        # zero the parameter gradients
+        optimizer.zero_grad()
+        
         # Compute prediction and loss
         pred = model(data.x, data.edge_index, data.batch)
         loss = loss_fn(pred, data.y)
         correct += (pred.argmax(1) == data.y).type(torch.float).sum().item()
         size += len(data.y)
+        training_loss += loss.item()
+        
         # Backpropagation
-        optimizer.zero_grad()
         loss.backward()
         optimizer.step()
-        training_loss += loss.item()
+        
 
     return model, training_loss / len(dataloader), correct / size
 
@@ -174,6 +172,8 @@ def trainmodel(model,
                scheduler=None):
     device = model.device
     print(f'devices:{device}')
+    
+    model.to(device)
 
     train_dataset = CustomDataset(dataframe=train_df, device=device)
     val_dataset = CustomDataset(dataframe=val_df, device=device)
@@ -219,8 +219,8 @@ def trainmodel(model,
     test_acc_backup = []
 
     pbar = tqdm(total=epochs)
-
-    model.to(device)
+    
+    # print(geo_nn.summary(model, torch.rand(478, 3).to(device), train_dataset.edge_index.to(device), torch.ones(478, dtype=torch.int64).to(device)))
     
     for i in range(epochs):
         pbar.set_description(
