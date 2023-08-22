@@ -231,9 +231,9 @@ def trainmodel(model,
     test_loss_backup = []
     test_acc_backup = []
 
-    print(geo_nn.summary(model,torch.rand(478, 3).to(device),
+    print(geo_nn.summary(model,torch.rand(1, 478, 3).to(device),
                          train_dataset.edge_index.to(device),
-                         torch.ones(478, dtype=torch.int64).to(device)))
+                         torch.ones((478), dtype=torch.int64).to(device)))
     pbar = tqdm(total=epochs)
     model.eval()
 
