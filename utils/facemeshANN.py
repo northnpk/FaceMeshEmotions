@@ -41,6 +41,7 @@ class ANNClassifier(nn.Module):
         super().__init__()
         self.flatten = nn.Flatten()
         self.linear_relu_stack = nn.Sequential(
+            nn.Dropout(dropout),
             nn.Linear(input_size, 1024),
             nn.ReLU(),
             nn.Dropout(dropout),
@@ -167,16 +168,7 @@ def trainmodel(model,
     loss_fn = nn.CrossEntropyLoss()
     # optimizer = torch.optim.SGD(model.parameters(), lr=lr, momentum=0.9, weight_decay=1e-4)
     optimizer = torch.optim.Adam(model.parameters(), lr=lr)
-    scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(
-        optimizer,
-        mode='min',
-        factor=0.1,
-        patience=10,
-        threshold=0.0001,
-        threshold_mode='rel',
-        cooldown=0,
-        min_lr=4e-6,
-        eps=1e-08)
+    # scheduler = torch.optim.lr_scheduler.LinearLR(optimizer, start_factor=0.9, end_factor=1, total_iters=epochs)
 
     train_loss = torch.tensor(0)
     train_acc = torch.tensor(0)
@@ -210,8 +202,9 @@ def trainmodel(model,
                 test_loss, test_acc = test_loop(test_loader, model, loss_fn)
             else:
                 val_loss, val_acc = test_loop(val_loader, model, loss_fn)
-
-        # scheduler.step(val_loss)
+        
+        # scheduler.step()
+        
         train_loss_backup.append(train_loss)
         train_acc_backup.append(train_acc)
         test_loss_backup.append(test_loss)

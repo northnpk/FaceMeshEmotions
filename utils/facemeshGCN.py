@@ -60,24 +60,26 @@ class GCNClassifier(nn.Module):
         self.dropout_p = dropout
         self.GCNstack = geo_nn.Sequential('x, edge_index, batch', [
             (nn.Dropout(self.dropout_p), 'x -> x'),
-            (geo_nn.GCNConv(input_size, hidden_size), 'x, edge_index -> x'),
-            nn.ReLU(),
-            nn.Dropout(self.dropout_p),
-            (geo_nn.GCNConv(hidden_size,
-                            2 * hidden_size), 'x, edge_index -> x'),
+            (geo_nn.GCNConv(input_size, 2 * hidden_size), 'x, edge_index -> x'),
             nn.ReLU(),
             nn.Dropout(self.dropout_p),
             (geo_nn.GCNConv(2 * hidden_size,
                             hidden_size), 'x, edge_index -> x'),
             nn.ReLU(),
             nn.Dropout(self.dropout_p),
-            (geo_nn.GCNConv(hidden_size, hidden_size), 'x, edge_index -> x'),
+            (geo_nn.GCNConv(hidden_size,
+                            hidden_size), 'x, edge_index -> x'),
+            nn.ReLU(),
+            nn.Dropout(self.dropout_p),
+            (geo_nn.GCNConv(hidden_size, int(hidden_size//2)), 'x, edge_index -> x'),
             nn.ReLU(),
             (geo_nn.global_mean_pool, 'x, batch -> x'),
         ])
         self.fc = nn.Sequential(
             nn.Dropout(self.dropout_p),
-            nn.Linear(hidden_size, output_size),
+            nn.Linear(int(hidden_size//2), int(hidden_size//2)),
+            nn.ReLU(),
+            nn.Linear(int(hidden_size//2), output_size)
         )
         if device == 'auto':
             self.device = ("cuda" if torch.cuda.is_available() else "mps"
